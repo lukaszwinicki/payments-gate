@@ -2,15 +2,14 @@
 
 namespace App\Models;
 
+use App\Enums\PaymentMethod;
 use App\Enums\TransactionStatus;
 use Illuminate\Database\Eloquent\Model;
+
 
 /**
  * 
  *
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction newModelQuery()
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction newQuery()
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction query()
  * @property int $id
  * @property string $transaction_uuid
  * @property string $transactions_id
@@ -20,9 +19,12 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $currency
  * @property TransactionStatus $status
  * @property string $notification_url
- * @property string $payment_method
+ * @property PaymentMethod $payment_method
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction query()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereAmount($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereCreatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereCurrency($value)
@@ -55,7 +57,8 @@ class Transaction extends Model
     protected function casts(): array
     {
         return [
-            'status' => TransactionStatus::class
+            'status' => TransactionStatus::class,
+            'payment_method' => PaymentMethod::class
         ];
     }
 

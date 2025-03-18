@@ -1,0 +1,49 @@
+version: '3.8'
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: payments-gate
+    container_name: payments-gate
+    restart: unless-stopped
+    tty: true
+    environment:
+      SERVICE_NAME: app
+      SERVICE_TAGS: dev
+    depends_on:
+      - db
+    working_dir: /var/www
+    volumes:
+      - .:/var/www
+      - ./docker-compose/php/local.ini:/usr/local/etc/php/conf.d/local.ini
+
+
+  webserver:
+    image: nginx:alpine
+    container_name: nginx-webserver
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - .:/var/www
+      - ./docker-compose/nginx:/etc/nginx/conf.d/
+   
+
+  db:
+    image: mysql:5.7
+    container_name: mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: payments-gate
+      MYSQL_ROOT_PASSWORD: test
+      MYSQL_PASSWORD: root
+      MYSQL_USER: laravel
+    ports:
+      - "3306:3306"
+    volumes:
+      - dbdata:/var/lib/mysql
+
+volumes:
+  dbdata:
+    driver: local

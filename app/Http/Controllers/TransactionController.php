@@ -58,4 +58,26 @@ class TransactionController extends Controller
             }
         }
     }
+
+    public function confirmTransaction(Request $request)
+    {
+        
+        $webHookBody = $request->getContent();
+        $headers = $request->header();
+ 
+        $paymentSevice = PaymentMethodFactory::getInstanceByPaymentMethod($request->query('payment_method'));
+        $confirmTransactionDto = $paymentSevice->confirm($webHookBody,$headers);
+
+        if($confirmTransactionDto->getStatus() === TransactionStatus::SUCCESS)
+        {
+            Transaction::where('transaction_uuid',$confirmTransactionDto->getRemotedCode())->update([
+                'status' => $confirmTransactionDto->isCompleted() ? TransactionStatus::SUCCESS : TransactionStatus::FAIL
+            ]);
+            return response($confirmTransactionDto->getResponseBody(),200);
+        }
+        else{
+            return response('',402);
+        }
+    }
+
 }

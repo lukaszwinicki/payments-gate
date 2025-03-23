@@ -5,6 +5,8 @@ namespace App\Models;
 use App\Enums\PaymentMethod;
 use App\Enums\TransactionStatus;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
 
 
 /**
@@ -22,6 +24,8 @@ use Illuminate\Database\Eloquent\Model;
  * @property PaymentMethod $payment_method
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Notification> $notifications
+ * @property-read int|null $notifications_count
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction query()
@@ -53,6 +57,10 @@ class Transaction extends Model
         'payment_method'
     ];
 
+    public function notifications(): HasMany
+    {
+        return $this->hasMany(Notification::class);
+    }
 
     protected function casts(): array
     {

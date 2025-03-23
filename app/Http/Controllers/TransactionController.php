@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\TransactionStatus;
 use App\Factory\PaymentMethodFactory;
+use App\Jobs\ProcessWebhookJob;
 use App\Models\Transaction;
 use App\Services\ValidatorService;
 use Illuminate\Http\Request;
@@ -64,7 +65,7 @@ class TransactionController extends Controller
         
         $webHookBody = $request->getContent();
         $headers = $request->header();
- 
+
         $paymentSevice = PaymentMethodFactory::getInstanceByPaymentMethod($request->query('payment_method'));
         $confirmTransactionDto = $paymentSevice->confirm($webHookBody,$headers);
 
@@ -73,6 +74,8 @@ class TransactionController extends Controller
             Transaction::where('transaction_uuid',$confirmTransactionDto->getRemotedCode())->update([
                 'status' => $confirmTransactionDto->isCompleted() ? TransactionStatus::SUCCESS : TransactionStatus::FAIL
             ]);
+            $transaction = Transaction::where('transaction_uuid',$confirmTransactionDto->getRemotedCode())->first();
+            ProcessWebhookJob::dispatch($transaction);
             return response($confirmTransactionDto->getResponseBody(),200);
         }
         else{

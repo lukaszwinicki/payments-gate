@@ -4,11 +4,14 @@ namespace App\Services;
 
 use App\Factory\Dtos\ConfirmTransactionDto;
 use App\Factory\Dtos\CreateTransactionDto;
+use App\Factory\Dtos\RefundPaymentDto;
+use App\Models\Transaction;
 use App\Services\PaymentMethodInterface;
 use App\Enums\TransactionStatus;
 use GuzzleHttp\Client;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Cache;
+
 
 class TPayService implements PaymentMethodInterface
 {
@@ -82,16 +85,53 @@ class TPayService implements PaymentMethodInterface
         parse_str(urldecode($webHookBody),$result);
         $json = json_encode($result);
         $tpayWebhookBody = json_decode($json ,true);
-
         $remoteCode = $tpayWebhookBody['tr_crc'];
-        $completed = $tpayWebhookBody['tr_status'] == 'TRUE';
+        $completed = false;
 
-        $confirmTransactionDto->setRemotedCode($remoteCode);
+        if($tpayWebhookBody['tr_status'] == 'TRUE')
+        {
+            $completed = $tpayWebhookBody['tr_status'] == 'TRUE';
+            $confirmTransactionDto->setStatus(TransactionStatus::SUCCESS);
+        }
+
+        if($tpayWebhookBody['tr_status'] == 'CHARGEBACK')
+        {
+            $completed = $tpayWebhookBody['tr_status'] == 'CHARGEBACK';
+            $confirmTransactionDto->setStatus(TransactionStatus::REFUND);
+        }
+       
         $confirmTransactionDto->setCompleted($completed);
-        $confirmTransactionDto->setStatus(TransactionStatus::SUCCESS);
+        $confirmTransactionDto->setRemotedCode($remoteCode);
         $confirmTransactionDto->setResponseBody('TRUE');
         
         return $confirmTransactionDto;
+    }
+
+    public function refund(string $transactionUuid): RefundPaymentDto
+    {
+        $accessToken = Cache::get('token');
+        
+        if(!Cache::has('token'))
+        {
+            $accessToken = $this->getToken();
+        }
+
+        $transactionId = Transaction::where('transaction_uuid',$transactionUuid, 'transactions_id')->first();
+        $responseRefund = $this->client->request('POST', env('TPAY_OPEN_API_URL').'/transactions/'.$transactionId['transactions_id'].'/refunds',[
+            'headers' => [
+                'authorization' => 'Bearer ' . $accessToken
+            ]
+        ]);
+    
+        $responseBodyRefund = json_decode($responseRefund->getBody()->getContents(),true);
+        $refundPaymentDto = new RefundPaymentDto();
+
+        if($responseRefund->getStatusCode() == 200 && $responseBodyRefund['result'] === 'success' && $responseBodyRefund['status'] === 'refund')
+        {
+            $refundPaymentDto->status = TransactionStatus::REFUND;
+        }
+        
+        return $refundPaymentDto;
     }
 
     public function getToken()

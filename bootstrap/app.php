@@ -13,7 +13,8 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->validateCsrfTokens(except:[
             '/createTransaction',
-            '/confirmTransaction'
+            '/confirmTransaction',
+            '/refundPayment'
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

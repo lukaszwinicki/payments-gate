@@ -9,3 +9,4 @@ Route::get('/', function () {
 
 Route::post('/createTransaction', [TransactionController::class, 'createTransaction']);
 Route::post('/confirmTransaction', [TransactionController::class, 'confirmTransaction']);
+Route::post('/refundPayment',[TransactionController::class, 'refundPayment']);

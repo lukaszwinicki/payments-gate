@@ -7,12 +7,14 @@ use App\Enums\TransactionStatus;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 
+
 /**
  * 
  *
  * @property int $id
  * @property int $transaction_id
  * @property TransactionStatus $status
+ * @property TransactionStatus $type_status
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read \App\Models\Transaction $transaction
@@ -23,6 +25,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Notification whereId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Notification whereStatus($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Notification whereTransactionId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Notification whereTypeStatus($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Notification whereUpdatedAt($value)
  * @mixin \Eloquent
  */
@@ -30,7 +33,8 @@ class Notification extends Model
 {
     protected $fillable = [
         'transaction_id',
-        'status'
+        'status',
+        'type_status'
     ];
 
     public function transaction(): BelongsTo
@@ -42,6 +46,7 @@ class Notification extends Model
     {
         return [
             'status' => TransactionStatus::class,
+            'type_status' => TransactionStatus::class
         ];
     }
 }

@@ -60,9 +60,10 @@ class TransactionController extends Controller
         }
     }
 
+    
     public function confirmTransaction(Request $request)
     {
-        
+
         $webHookBody = $request->getContent();
         $headers = $request->header();
 
@@ -75,11 +76,47 @@ class TransactionController extends Controller
                 'status' => $confirmTransactionDto->isCompleted() ? TransactionStatus::SUCCESS : TransactionStatus::FAIL
             ]);
             $transaction = Transaction::where('transaction_uuid',$confirmTransactionDto->getRemotedCode())->first();
+            
+            if($transaction->status == TransactionStatus::FAIL)
+            {
+                Log::error('Transaction failed ' . $transaction->transaction_uuid);
+                ProcessWebhookJob::dispatch($transaction);
+                return response()->json([
+                    'message' => 'Transaction failed',
+                    'transaction_uuid' => $transaction->transaction_uuid
+                ], 400);
+            }
             ProcessWebhookJob::dispatch($transaction);
+           
             return response($confirmTransactionDto->getResponseBody(),200);
         }
-        else{
+        elseif($confirmTransactionDto->getStatus() === TransactionStatus::REFUND)
+        {
+            return response('',200);
+        }
+        else
+        {
             return response('',402);
+        }
+    }
+
+
+    public function refundPayment(Request $request)
+    {
+        $refundBody = $request->all();
+        $paymentService = PaymentMethodFactory::getInstanceByPaymentMethod($refundBody['payment_method']);
+        $refundPaymentDto = $paymentService->refund($refundBody['transactionUuid']);
+
+        if($refundPaymentDto->status === TransactionStatus::REFUND)
+        {
+            $transaction = Transaction::where('transaction_uuid', $refundBody['transactionUuid'])->first();
+            $transaction->status = TransactionStatus::REFUND;
+            $transaction->save();
+            ProcessWebhookJob::dispatch($transaction);
+        }
+        else
+        {
+            return response('',500);
         }
     }
 

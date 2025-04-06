@@ -17,9 +17,9 @@ class TPayService implements PaymentMethodInterface
 {
 
     private $client;
-    public function __construct()
+    public function __construct(Client $client = null)
     {
-        $this->client = new Client();
+        $this->client = $client ?: new Client();
     }
 
     public function create(array $transactionBody): CreateTransactionDto
@@ -72,7 +72,7 @@ class TPayService implements PaymentMethodInterface
     {
         
         $jws = $headers['x-jws-signature'][0];
-        $resultValidate = TPaySignatureValidator::confirm($webHookBody,$jws);
+        $resultValidate = (new TPaySignatureValidator)->confirm($webHookBody,$jws);
         $confirmTransactionDto = new ConfirmTransactionDto();
 
         if(!$resultValidate)
@@ -116,7 +116,7 @@ class TPayService implements PaymentMethodInterface
             $accessToken = $this->getToken();
         }
 
-        $transactionId = Transaction::where('transaction_uuid',$transactionUuid, 'transactions_id')->first();
+        $transactionId = Transaction::where('transaction_uuid',$transactionUuid)->first();
         $responseRefund = $this->client->request('POST', env('TPAY_OPEN_API_URL').'/transactions/'.$transactionId['transactions_id'].'/refunds',[
             'headers' => [
                 'authorization' => 'Bearer ' . $accessToken

@@ -6,8 +6,5 @@ use App\Enums\TransactionStatus;
 
 class RefundPaymentDto 
 {
-    public function __construct(public ?TransactionStatus $status = null)
-    {
-        
-    }
+    public function __construct(public ?TransactionStatus $status = null) {}
 }

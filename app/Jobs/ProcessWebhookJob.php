@@ -17,11 +17,8 @@ class ProcessWebhookJob implements ShouldQueue
     /**
      * Create a new job instance.
      */
-    private $transaction;
-    public function __construct(Transaction $transaction)
-    {
-        $this->transaction = $transaction;
-    }
+    //private Transaction $transaction;
+    public function __construct(private Transaction $transaction) {}
 
     /**
      * Execute the job.
@@ -54,7 +51,7 @@ class ProcessWebhookJob implements ShouldQueue
             ]);
           
         }catch(Exception){
-            
+
             Notification::create([
                 'transaction_id' => $this->transaction->id,
                 'status' => TransactionStatus::FAIL,

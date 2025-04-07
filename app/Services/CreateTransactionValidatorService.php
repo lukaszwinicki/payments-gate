@@ -4,9 +4,8 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\Validator;
 
-class ValidatorService
+class CreateTransactionValidatorService
 {
-
     public function validate(array $transactionBody)
     {
         $rules = [
@@ -19,5 +18,4 @@ class ValidatorService
 
         return Validator::make($transactionBody,$rules);
     }
-
 } 

@@ -2,7 +2,7 @@
 
 namespace App\Providers;
 
-use App\Services\ValidatorService;
+use App\Services\CreateTransactionValidatorService;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -12,8 +12,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->singleton(ValidatorService::class, function($app): ValidatorService{
-            return new ValidatorService();
+        $this->app->singleton(CreateTransactionValidatorService::class, function($app): CreateTransactionValidatorService{
+            return new CreateTransactionValidatorService();
         });
     }
 

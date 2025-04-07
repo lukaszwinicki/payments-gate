@@ -12,26 +12,13 @@ use GuzzleHttp\Client;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Cache;
 
-
 class TPayService implements PaymentMethodInterface
 {
-
-    private $client;
-    public function __construct(Client $client = null)
-    {
-        $this->client = $client ?: new Client();
-    }
+    public function __construct(public ?Client $client = new Client()) {}
 
     public function create(array $transactionBody): CreateTransactionDto
-    {
-        $accessToken = Cache::get('token');
+    {   
         $uuid = Str::uuid();
-
-        if(!Cache::has('token'))
-        {
-            $accessToken = $this->getToken();
-        }
-
         $tpayRequestBody = [
             'amount' => $transactionBody['amount'],
             'description' =>  $uuid,
@@ -42,43 +29,40 @@ class TPayService implements PaymentMethodInterface
             ],
             'callbacks' => [
                 'notification' => [
-                    'url' => env('APP_URL').'/confirmTransaction?payment_method=' .$transactionBody['payment_method']
+                    'url' => env('APP_URL').'/api/confirm-transaction?payment_method=' .$transactionBody['payment_method']
                 ]
             ]
         ]; 
 
         $createTransaction = $this->client->request('POST', env('TPAY_OPEN_API_URL').'/transactions',[
             'headers' => [
-                'authorization' => 'Bearer '. $accessToken 
+                'authorization' => 'Bearer '. $this->accessToken()
             ],
             'json' => $tpayRequestBody
         ]);
-
-        $tpayResponseBody = json_decode($createTransaction->getBody()->getContents(),true);
         
-        $createTransactionDto = new CreateTransactionDto();
-        $createTransactionDto->setTransactionId($tpayResponseBody['transactionId']);
-        $createTransactionDto->setUuid($tpayResponseBody['hiddenDescription']);
-        $createTransactionDto->setName($tpayResponseBody['payer']['name']);
-        $createTransactionDto->setEmail($tpayResponseBody['payer']['email']);
-        $createTransactionDto->setAmount($tpayResponseBody['amount']);
-        $createTransactionDto->setCurrency($tpayResponseBody['currency']);
-        $createTransactionDto->setLink($tpayResponseBody['transactionPaymentUrl']);
+        $tpayResponseBody = json_decode($createTransaction->getBody()->getContents(),true);
+        $createTransactionDto = new CreateTransactionDto(
+            $tpayResponseBody['transactionId'],
+            $tpayResponseBody['hiddenDescription'],
+            $tpayResponseBody['payer']['name'],
+            $tpayResponseBody['payer']['email'],
+            $tpayResponseBody['currency'],
+            $tpayResponseBody['amount'],
+            $tpayResponseBody['transactionPaymentUrl']
+        );
 
         return $createTransactionDto;
     } 
 
     public function confirm(string $webHookBody, array $headers): ConfirmTransactionDto
     {
-        
         $jws = $headers['x-jws-signature'][0];
         $resultValidate = (new TPaySignatureValidator)->confirm($webHookBody,$jws);
-        $confirmTransactionDto = new ConfirmTransactionDto();
-
+        
         if(!$resultValidate)
         {
-            $confirmTransactionDto->setStatus(TransactionStatus::FAIL);
-            return $confirmTransactionDto;
+            return new ConfirmTransactionDto(TransactionStatus::FAIL);
         }
 
         // Converts x-www-form-urlencode to array 
@@ -87,39 +71,29 @@ class TPayService implements PaymentMethodInterface
         $tpayWebhookBody = json_decode($json ,true);
         $remoteCode = $tpayWebhookBody['tr_crc'];
         $completed = false;
-
+        $status = null;
+        
         if($tpayWebhookBody['tr_status'] == 'TRUE')
         {
             $completed = $tpayWebhookBody['tr_status'] == 'TRUE';
-            $confirmTransactionDto->setStatus(TransactionStatus::SUCCESS);
+            $status = TransactionStatus::SUCCESS;
         }
 
         if($tpayWebhookBody['tr_status'] == 'CHARGEBACK')
         {
             $completed = $tpayWebhookBody['tr_status'] == 'CHARGEBACK';
-            $confirmTransactionDto->setStatus(TransactionStatus::REFUND);
+            $status = TransactionStatus::REFUND;
         }
-       
-        $confirmTransactionDto->setCompleted($completed);
-        $confirmTransactionDto->setRemotedCode($remoteCode);
-        $confirmTransactionDto->setResponseBody('TRUE');
         
-        return $confirmTransactionDto;
+        return new ConfirmTransactionDto($status, 'TRUE', $remoteCode, $completed);
     }
 
     public function refund(string $transactionUuid): RefundPaymentDto
     {
-        $accessToken = Cache::get('token');
-        
-        if(!Cache::has('token'))
-        {
-            $accessToken = $this->getToken();
-        }
-
         $transactionId = Transaction::where('transaction_uuid',$transactionUuid)->first();
         $responseRefund = $this->client->request('POST', env('TPAY_OPEN_API_URL').'/transactions/'.$transactionId['transactions_id'].'/refunds',[
             'headers' => [
-                'authorization' => 'Bearer ' . $accessToken
+                'authorization' => 'Bearer ' . $this->accessToken()
             ]
         ]);
     
@@ -149,6 +123,18 @@ class TPayService implements PaymentMethodInterface
         Cache::put('token',$token['access_token'],120);
 
         return $token['access_token'];
+    }
+
+    private function accessToken()
+    {
+        $accessToken = Cache::get('token');
+
+        if(!Cache::has('token'))
+        {
+            $accessToken = $this->getToken();
+        }
+
+        return $accessToken;
     }
 
 }

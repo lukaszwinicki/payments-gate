@@ -8,5 +8,4 @@ enum TransactionStatus: string
     case FAIL = 'FAIL';
     case PENDING = 'PENDING';
     case REFUND = 'REFUND';
-
 }

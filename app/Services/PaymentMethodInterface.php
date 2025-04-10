@@ -8,7 +8,7 @@ use App\Factory\Dtos\RefundPaymentDto;
 
 interface PaymentMethodInterface
 {
-    public function create(array $transactionBody): CreateTransactionDto;
+    public function create(array $transactionBody): ?CreateTransactionDto;
     public function confirm(string $webHookBody, array $headers): ConfirmTransactionDto;
-    public function refund(string $transactionUuid): RefundPaymentDto;
+    public function refund(string $transactionUuid): ?RefundPaymentDto;
 } 

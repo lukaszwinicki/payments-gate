@@ -22,15 +22,14 @@ class TransactionController extends Controller
         if($request->isMethod('post'))
         {
             $transactionBody = $request->all();
-            $paymentService = PaymentMethodFactory::getInstanceByPaymentMethod(PaymentMethod::tryFrom($transactionBody['payment_method']));
-            $createTransactionDto = $paymentService->create($transactionBody);
-            
-            $transactionBodyRequestValidator = $this->validator->validate($request->all());
-            
+            $transactionBodyRequestValidator = $this->validator->validate($transactionBody);
             if($transactionBodyRequestValidator->fails())
             {
                 return response()->json(['error' => $transactionBodyRequestValidator->errors(),422]);
             }
+
+            $paymentService = PaymentMethodFactory::getInstanceByPaymentMethod(PaymentMethod::tryFrom($transactionBody['payment_method']));
+            $createTransactionDto = $paymentService->create($transactionBody);
 
             try
             {
@@ -96,6 +95,11 @@ class TransactionController extends Controller
     public function refundPayment(Request $request)
     {
         $refundBody = $request->all();
+        if(empty($refundBody['transactionUuid']))
+        {
+            return response()->json(['error' => 'Brak identyfikatora uuid '], 500);
+        }
+
         $paymentService = PaymentMethodFactory::getInstanceByPaymentMethod(PaymentMethod::tryFrom($refundBody['payment_method']));
         $refundPaymentDto = $paymentService->refund($refundBody['transactionUuid']);
 
@@ -108,7 +112,7 @@ class TransactionController extends Controller
         }
         else
         {
-            return response('',500);
+            return response()->json(['error' => 'Bład'], 500);
         }
     }
 }

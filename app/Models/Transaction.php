@@ -12,7 +12,7 @@ class Transaction extends Model
 {
     protected $fillable = [
         'transaction_uuid',
-        'transaction_id',
+        'transactions_id',
         'amount',
         'name',
         'email',

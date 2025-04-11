@@ -125,5 +125,14 @@ return [
 
     'aliases' => [
         'TPaySignatureValidator' => App\Facades\TPaySignatureValidatorFacade::class,
-    ]
+    ],
+
+    'tpay' => [
+        'openApiUrl' => env('TPAY_OPEN_API_URL'),
+        'gateway' => env('TPAY_GATEWAY'),
+        'tokenClientId' => env('TPAY_TOKEN_CLIENT_ID'),
+        'tokenClientSecret' => env('TPAY_TOKEN_CLIENT_SECRET'),
+    ],
+
+    'signatureSecretKey' => env('SIGNATURE_SECRET_KEY')
 ];

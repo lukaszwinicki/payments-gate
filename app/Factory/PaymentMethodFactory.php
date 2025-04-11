@@ -10,12 +10,11 @@ use Nette\NotImplementedException;
 
 class PaymentMethodFactory
 {
-    public static function getInstanceByPaymentMethod(?PaymentMethod $paymentMethod): PaymentMethodInterface 
+    public static function getInstanceByPaymentMethod(?PaymentMethod $paymentMethod): PaymentMethodInterface
     {
-        return match($paymentMethod)
-        {
+        return match ($paymentMethod) {
             PaymentMethod::PAYMENT_METHOD_TPAY => new TPayService(),
-            default => throw new NotImplementedException("Payment method ". $paymentMethod->value . " is not implemented.")
+            default => throw new NotImplementedException("Payment method " . ($paymentMethod) . " is not implemented.")
         };
-    } 
+    }
 }

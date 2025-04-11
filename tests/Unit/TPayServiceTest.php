@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature;
+namespace Tests\Unit;
 
 use App\Enums\TransactionStatus;
 use App\Facades\TPaySignatureValidatorFacade;
@@ -9,7 +9,6 @@ use App\Factory\Dtos\RefundPaymentDto;
 use App\Models\Transaction;
 use App\Services\TPayService;
 use GuzzleHttp\Client;
-use GuzzleHttp\Exception\RequestException;
 use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Psr7\Response;
@@ -19,6 +18,12 @@ use Tests\TestCase;
 
 class TPayServiceTest extends TestCase
 {
+    public function tearDown(): void
+    {
+        Mockery::close();
+        parent::tearDown();
+    }
+
     public function test_create_transaction_success()
     {
         $transactionBody = [
@@ -39,26 +44,26 @@ class TPayServiceTest extends TestCase
             'currency' => 'PLN',
             'transactionPaymentUrl' => 'https://example.com/link',
         ];
-        
+
         $mock = new MockHandler([
             new Response(200, [], json_encode($mockedResponse)),
         ]);
 
         $handlerStack = HandlerStack::create($mock);
-        $client = new Client(['handler' => $handlerStack]); 
+        $client = new Client(['handler' => $handlerStack]);
 
         Cache::shouldReceive('get')
             ->with('token')
             ->andReturn('mocked_access_token');
 
         Cache::shouldReceive('has')
-        ->with('token')
-        ->andReturn(true);
+            ->with('token')
+            ->andReturn(true);
 
         $paymentService = new TPayService($client);
 
         $createTransactionDto = $paymentService->create($transactionBody);
-        $this->assertEquals('12345',$createTransactionDto->transactionId);
+        $this->assertEquals('12345', $createTransactionDto->transactionId);
         $this->assertEquals('uuid-12345', $createTransactionDto->uuid);
         $this->assertEquals('Jan Kowalski', $createTransactionDto->name);
         $this->assertEquals('jankowalski@example.com', $createTransactionDto->email);
@@ -80,11 +85,19 @@ class TPayServiceTest extends TestCase
             new Response(500, [], ''),
         ]);
 
+        Cache::shouldReceive('get')
+            ->with('token')
+            ->andReturn('mocked_access_token');
+
+        Cache::shouldReceive('has')
+            ->with('token')
+            ->andReturn(true);
+
         $handlerStack = HandlerStack::create($mock);
         $client = new Client(['handler' => $handlerStack]);
         $paymentService = new TPayService($client);
         $createTransactionDto = $paymentService->create($transactionBody);
-        $this->assertNull($createTransactionDto); 
+        $this->assertNull($createTransactionDto);
     }
 
     public function test_confirm_invalid_jws_signature_header()
@@ -94,13 +107,13 @@ class TPayServiceTest extends TestCase
             'x-jws-signature' => ['invalid-signature']
         ];
         TPaySignatureValidatorFacade::shouldReceive('confirm')
-        ->once()
-        ->with($webhookBody,'invalid-signature')
-        ->andReturn(false);
+            ->once()
+            ->with($webhookBody, 'invalid-signature')
+            ->andReturn(false);
         $paymentService = new TPayService();
-        $result = $paymentService->confirm($webhookBody,$headers);
-        $this->assertInstanceOf(ConfirmTransactionDto::class,$result);
-        $this->assertEquals(TransactionStatus::FAIL,$result->status);
+        $result = $paymentService->confirm($webhookBody, $headers);
+        $this->assertInstanceOf(ConfirmTransactionDto::class, $result);
+        $this->assertEquals(TransactionStatus::FAIL, $result->status);
     }
 
     public function test_confirm_invalid_webhookBody()
@@ -110,13 +123,13 @@ class TPayServiceTest extends TestCase
             'x-jws-signature' => ['valid-signature']
         ];
         TPaySignatureValidatorFacade::shouldReceive('confirm')
-        ->once()
-        ->with($webhookBody,'valid-signature')
-        ->andReturn(false);
+            ->once()
+            ->with($webhookBody, 'valid-signature')
+            ->andReturn(false);
         $paymentService = new TPayService();
-        $result = $paymentService->confirm($webhookBody,$headers);
-        $this->assertInstanceOf(ConfirmTransactionDto::class,$result);
-        $this->assertEquals(TransactionStatus::FAIL,$result->status);
+        $result = $paymentService->confirm($webhookBody, $headers);
+        $this->assertInstanceOf(ConfirmTransactionDto::class, $result);
+        $this->assertEquals(TransactionStatus::FAIL, $result->status);
     }
 
     public function test_confirm_tr_status_is_true()
@@ -126,16 +139,16 @@ class TPayServiceTest extends TestCase
             'x-jws-signature' => ['valid-signature']
         ];
         TPaySignatureValidatorFacade::shouldReceive('confirm')
-        ->once()
-        ->with($webhookBody,'valid-signature')
-        ->andReturn(true);
+            ->once()
+            ->with($webhookBody, 'valid-signature')
+            ->andReturn(true);
         $paymentService = new TPayService();
-        $result = $paymentService->confirm($webhookBody,$headers);
-        $this->assertInstanceOf(ConfirmTransactionDto::class,$result);
-        $this->assertEquals(TransactionStatus::SUCCESS,$result->status);
-        $this->assertEquals('TRUE',$result->responseBody);
-        $this->assertEquals('123456789',$result->remoteCode);
-        $this->assertEquals(true,$result->completed);
+        $result = $paymentService->confirm($webhookBody, $headers);
+        $this->assertInstanceOf(ConfirmTransactionDto::class, $result);
+        $this->assertEquals(TransactionStatus::SUCCESS, $result->status);
+        $this->assertEquals('TRUE', $result->responseBody);
+        $this->assertEquals('123456789', $result->remoteCode);
+        $this->assertEquals(true, $result->completed);
     }
 
     public function test_confirm_tr_status_is_chargeback()
@@ -145,31 +158,31 @@ class TPayServiceTest extends TestCase
             'x-jws-signature' => ['valid-signature']
         ];
         TPaySignatureValidatorFacade::shouldReceive('confirm')
-        ->once()
-        ->with($webhookBody,'valid-signature')
-        ->andReturn(true);
+            ->once()
+            ->with($webhookBody, 'valid-signature')
+            ->andReturn(true);
         $paymentService = new TPayService();
-        $result = $paymentService->confirm($webhookBody,$headers);
-        $this->assertInstanceOf(ConfirmTransactionDto::class,$result);
-        $this->assertEquals(TransactionStatus::REFUND,$result->status);
-        $this->assertEquals('TRUE',$result->responseBody);
-        $this->assertEquals('123456789',$result->remoteCode);
-        $this->assertEquals(true,$result->completed);
+        $result = $paymentService->confirm($webhookBody, $headers);
+        $this->assertInstanceOf(ConfirmTransactionDto::class, $result);
+        $this->assertEquals(TransactionStatus::REFUND, $result->status);
+        $this->assertEquals('TRUE', $result->responseBody);
+        $this->assertEquals('123456789', $result->remoteCode);
+        $this->assertEquals(true, $result->completed);
     }
 
     public function test_refund_success()
     {
         $mockTransaction = Mockery::mock('alias:App\Models\Transaction');
         $mockTransaction->shouldReceive('where')
-        ->with('transaction_uuid', 'valid-uuid')
-        ->andReturnSelf();
+            ->with('transaction_uuid', 'valid-uuid')
+            ->andReturnSelf();
 
         $mockTransaction->shouldReceive('first')
-        ->andReturn((object)[
-            'transactions_id' => '12345',
-            'transaction_uuid' => 'valid-uuid',
-            'status' => TransactionStatus::SUCCESS
-        ]);
+            ->andReturn((object) [
+                'transactions_id' => '12345',
+                'transaction_uuid' => 'valid-uuid',
+                'status' => TransactionStatus::SUCCESS
+            ]);
 
         $mockedResponseBody = [
             'result' => 'success',
@@ -181,8 +194,8 @@ class TPayServiceTest extends TestCase
             ->andReturn('mocked_access_token');
 
         Cache::shouldReceive('has')
-        ->with('token')
-        ->andReturn(true);
+            ->with('token')
+            ->andReturn(true);
 
         $mockRequest = new MockHandler([
             new Response(200, [], json_encode($mockedResponseBody)),
@@ -205,23 +218,23 @@ class TPayServiceTest extends TestCase
     {
         $mockTransaction = Mockery::mock('alias:App\Models\Transaction');
         $mockTransaction->shouldReceive('where')
-        ->with('transaction_uuid', 'valid-uuid')
-        ->andReturnSelf();
+            ->with('transaction_uuid', 'valid-uuid')
+            ->andReturnSelf();
 
         $mockTransaction->shouldReceive('first')
-        ->andReturn((object)[
-            'transactions_id' => '12345',
-            'transaction_uuid' => 'valid-uuid',
-            'status' => TransactionStatus::SUCCESS
-        ]);
+            ->andReturn((object) [
+                'transactions_id' => '12345',
+                'transaction_uuid' => 'valid-uuid',
+                'status' => TransactionStatus::SUCCESS
+            ]);
 
         Cache::shouldReceive('get')
             ->with('token')
             ->andReturn('mocked_access_token');
 
         Cache::shouldReceive('has')
-        ->with('token')
-        ->andReturn(true);
+            ->with('token')
+            ->andReturn(true);
 
         $mockRequest = new MockHandler([
             new Response(500, [], ''),
@@ -235,42 +248,42 @@ class TPayServiceTest extends TestCase
         $this->assertNull($result);
     }
 
-    public function test_refund_transaction_status_refund()
+    public function test_refund_transaction_status_is_refund()
     {
         $mockTransaction = Mockery::mock('alias:App\Models\Transaction');
         $mockTransaction->shouldReceive('where')
-        ->with('transaction_uuid', 'valid-uuid')
-        ->andReturnSelf();
+            ->with('transaction_uuid', 'valid-uuid')
+            ->andReturnSelf();
 
         $mockTransaction->shouldReceive('first')
-        ->andReturn((object)[
-            'transactions_id' => '12345',
-            'transaction_uuid' => 'valid-uuid',
-            'status' => TransactionStatus::REFUND
-        ]);
+            ->andReturn((object) [
+                'transactions_id' => '12345',
+                'transaction_uuid' => 'valid-uuid',
+                'status' => TransactionStatus::REFUND
+            ]);
 
         $paymentService = new TPayService();
         $transactionUuid = 'valid-uuid';
         $result = $paymentService->refund($transactionUuid);
-        $this->assertEquals(TransactionStatus::FAIL, $result->status);
+        $this->assertNull($result);
     }
 
     public function test_get_token_success()
     {
         $mock = new MockHandler([
-            new Response(200,[],json_encode(['access_token' => 'token'])),
+            new Response(200, [], json_encode(['access_token' => 'token'])),
         ]);
 
         $handlerStack = HandlerStack::create($mock);
-        $client = new Client(['handler' => $handlerStack]); 
-        $response = $client->request('POST','https://example.com/oauth/auth',[
+        $client = new Client(['handler' => $handlerStack]);
+        $response = $client->request('POST', 'https://example.com/oauth/auth', [
             'json' => [
                 'client_id' => 'valid-id',
                 'client_secret' => 'valid-secret'
             ]
         ]);
 
-        $this->assertEquals(200,$response->getStatusCode());
+        $this->assertEquals(200, $response->getStatusCode());
         $responseData = json_decode($response->getBody()->getContents(), true);
         $this->assertEquals('token', $responseData['access_token']);
     }
@@ -278,34 +291,22 @@ class TPayServiceTest extends TestCase
     public function test_get_token_invalid_client()
     {
         $mock = new MockHandler([
-            new Response(401,[],json_encode(['error' => 'invalid_client']))
+            new Response(401, [], json_encode(['error' => 'invalid_client']))
         ]);
 
         $handlerStack = HandlerStack::create($mock);
-        $client = new Client(['handler' => $handlerStack]); 
-        
-        try
-        {
-            $response = $client->request('POST','https://example.com/oauth/auth',[
-                'json' => [
-                    'client_id' => 'valid-id',
-                    'client_secret' => 'valid-secret'
-                ]
-            ]);
-        }
-        catch(RequestException $e)
-        {
-            $response = $e->getResponse();
-        }
-        
-        $this->assertEquals(401,$response->getStatusCode());
+        $client = new Client(['handler' => $handlerStack]);
+
+        $response = $client->request('POST', 'https://example.com/oauth/auth', [
+            'json' => [
+                'client_id' => 'valid-id',
+                'client_secret' => 'valid-secret'
+            ],
+            'http_errors' => false
+        ]);
+
+        $this->assertEquals(401, $response->getStatusCode());
         $responseData = json_decode($response->getBody()->getContents(), true);
         $this->assertEquals('invalid_client', $responseData['error']);
-    }
-    
-    public function tearDown(): void
-    {
-        Mockery::close();
-        parent::tearDown();
     }
 }

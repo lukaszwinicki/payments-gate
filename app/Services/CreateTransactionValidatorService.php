@@ -13,9 +13,9 @@ class CreateTransactionValidatorService
             'email' => 'required|email:rfc,dns|max:255',
             'name' => 'required|string|max:255',
             'payment_method' => 'required|string',
-            'notification_url' => 'required|string|url' 
+            'notification_url' => 'required|string|url'
         ];
 
-        return Validator::make($transactionBody,$rules);
+        return Validator::make($transactionBody, $rules);
     }
-} 
+}

@@ -2,15 +2,16 @@
 
 namespace App\Factory\Dtos;
 
-class CreateTransactionDto
+readonly class CreateTransactionDto
 {
     public function __construct(
-        public string $transactionId, 
-        public string $uuid, 
-        public string $name, 
-        public string $email, 
-        public string $currency, 
-        public float $amount, 
+        public string $transactionId,
+        public string $uuid,
+        public string $name,
+        public string $email,
+        public string $currency,
+        public string $amount,
         public string $link
-    ) {}
+    ) {
+    }
 }

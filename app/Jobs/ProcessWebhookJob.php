@@ -18,7 +18,9 @@ class ProcessWebhookJob implements ShouldQueue
      * Create a new job instance.
      */
     //private Transaction $transaction;
-    public function __construct(private Transaction $transaction) {}
+    public function __construct(private Transaction $transaction)
+    {
+    }
 
     /**
      * Execute the job.
@@ -26,8 +28,8 @@ class ProcessWebhookJob implements ShouldQueue
     public function handle(): void
     {
         $client = new Client();
-        
-        $signature = hash_hmac('sha256',$this->transaction->status->value . $this->transaction->transaction_uuid,env('SIGNATURE_SECRET_KEY'));
+
+        $signature = hash_hmac('sha256', $this->transaction->status->value . $this->transaction->transaction_uuid, config('app.signatureSecretKey'));
         $clientWebhookBody = [
             'signature' => $signature,
             'transaction_uuid' => $this->transaction->transaction_uuid,
@@ -35,12 +37,11 @@ class ProcessWebhookJob implements ShouldQueue
             'name' => $this->transaction->name,
             'email' => $this->transaction->email,
             'currency' => $this->transaction->currency,
-            'status' =>$this->transaction->status
-        ]; 
+            'status' => $this->transaction->status
+        ];
 
-        try
-        {         
-            $response = $client->request('POST', $this->transaction->notification_url,[
+        try {
+            $response = $client->request('POST', $this->transaction->notification_url, [
                 'json' => $clientWebhookBody
             ]);
 
@@ -49,8 +50,8 @@ class ProcessWebhookJob implements ShouldQueue
                 'status' => $response->getStatusCode() == 200 ? TransactionStatus::SUCCESS : TransactionStatus::FAIL,
                 'type_status' => $this->transaction->status
             ]);
-          
-        }catch(Exception){
+
+        } catch (Exception) {
 
             Notification::create([
                 'transaction_id' => $this->transaction->id,
@@ -59,4 +60,4 @@ class ProcessWebhookJob implements ShouldQueue
             ]);
         }
     }
-}   
+}

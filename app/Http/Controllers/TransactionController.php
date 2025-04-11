@@ -9,30 +9,28 @@ use App\Jobs\ProcessWebhookJob;
 use App\Models\Transaction;
 use App\Services\CreateTransactionValidatorService;
 use Illuminate\Http\Request;
-use Log;
-use Exception;
+use Illuminate\Support\Facades\Log;
 
 class TransactionController extends Controller
 {
 
-    public function __construct(private CreateTransactionValidatorService $validator){}
+    public function __construct(private CreateTransactionValidatorService $validator)
+    {
+    }
 
     public function createTransaction(Request $request)
-    {   
-        if($request->isMethod('post'))
-        {
+    {
+        if ($request->isMethod('post')) {
             $transactionBody = $request->all();
             $transactionBodyRequestValidator = $this->validator->validate($transactionBody);
-            if($transactionBodyRequestValidator->fails())
-            {
-                return response()->json(['error' => $transactionBodyRequestValidator->errors(),422]);
+            if ($transactionBodyRequestValidator->fails()) {
+                return response()->json(['error' => $transactionBodyRequestValidator->errors(), 422]);
             }
 
             $paymentService = PaymentMethodFactory::getInstanceByPaymentMethod(PaymentMethod::tryFrom($transactionBody['payment_method']));
             $createTransactionDto = $paymentService->create($transactionBody);
 
-            try
-            {
+            try {
                 $transaction = new Transaction();
                 $transaction->transaction_uuid = $createTransactionDto->uuid;
                 $transaction->transactions_id = $createTransactionDto->transactionId;
@@ -46,31 +44,28 @@ class TransactionController extends Controller
                 $transaction->save();
 
                 return response()->json(['link' => $createTransactionDto->link]);
-            }
-            catch (Exception $e) {
+            } catch (\Exception $e) {
                 return response()->json(['error' => 'Wystąpił błąd bazy danych '], 500);
             }
         }
     }
 
-    
+
     public function confirmTransaction(Request $request)
     {
         $webHookBody = $request->getContent();
         $headers = $request->header();
-       
+
         $paymentSevice = PaymentMethodFactory::getInstanceByPaymentMethod(PaymentMethod::tryFrom($request->query('payment_method')));
-        $confirmTransactionDto = $paymentSevice->confirm($webHookBody,$headers);
-       
-        if($confirmTransactionDto->status === TransactionStatus::SUCCESS)
-        {
-            Transaction::where('transaction_uuid',$confirmTransactionDto->remoteCode)->update([
+        $confirmTransactionDto = $paymentSevice->confirm($webHookBody, $headers);
+
+        if ($confirmTransactionDto->status === TransactionStatus::SUCCESS) {
+            Transaction::where('transaction_uuid', $confirmTransactionDto->remoteCode)->update([
                 'status' => $confirmTransactionDto->completed ? TransactionStatus::SUCCESS : TransactionStatus::FAIL
             ]);
-            $transaction = Transaction::where('transaction_uuid',$confirmTransactionDto->remoteCode)->first();
-        
-            if($transaction->status == TransactionStatus::FAIL)
-            {
+            $transaction = Transaction::where('transaction_uuid', $confirmTransactionDto->remoteCode)->first();
+
+            if ($transaction->status == TransactionStatus::FAIL) {
                 Log::error('Transaction failed ' . $transaction->transaction_uuid);
                 ProcessWebhookJob::dispatch($transaction);
                 return response()->json([
@@ -79,39 +74,31 @@ class TransactionController extends Controller
                 ], 400);
             }
             ProcessWebhookJob::dispatch($transaction);
-           
-            return response($confirmTransactionDto->responseBody,200);
-        }
-        elseif($confirmTransactionDto->status === TransactionStatus::REFUND)
-        {
-            return response('',200);
-        }
-        else
-        {
-            return response('',500);
+
+            return response($confirmTransactionDto->responseBody, 200);
+        } elseif ($confirmTransactionDto->status === TransactionStatus::REFUND) {
+            return response('', 200);
+        } else {
+            return response('', 500);
         }
     }
 
     public function refundPayment(Request $request)
     {
         $refundBody = $request->all();
-        if(empty($refundBody['transactionUuid']))
-        {
+        if (empty($refundBody['transactionUuid'])) {
             return response()->json(['error' => 'Brak identyfikatora uuid '], 500);
         }
 
         $paymentService = PaymentMethodFactory::getInstanceByPaymentMethod(PaymentMethod::tryFrom($refundBody['payment_method']));
         $refundPaymentDto = $paymentService->refund($refundBody['transactionUuid']);
 
-        if($refundPaymentDto->status === TransactionStatus::REFUND)
-        {
+        if ($refundPaymentDto !== null && $refundPaymentDto->status === TransactionStatus::REFUND) {
             $transaction = Transaction::where('transaction_uuid', $refundBody['transactionUuid'])->first();
             $transaction->status = TransactionStatus::REFUND;
             $transaction->save();
             ProcessWebhookJob::dispatch($transaction);
-        }
-        else
-        {
+        } else {
             return response()->json(['error' => 'Bład'], 500);
         }
     }

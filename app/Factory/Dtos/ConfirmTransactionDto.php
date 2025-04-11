@@ -8,8 +8,9 @@ readonly class ConfirmTransactionDto
 {
    public function __construct(
       public TransactionStatus $status,
-      public string $responseBody = '', 
-      public string $remoteCode = '', 
-      public string $completed = ''
-   ) {}
+      public string $responseBody = '',
+      public string $remoteCode = '',
+      public bool $completed = false
+   ) {
+   }
 }

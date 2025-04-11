@@ -13,7 +13,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->singleton(CreateTransactionValidatorService::class, function($app): CreateTransactionValidatorService{
+        $this->app->singleton(CreateTransactionValidatorService::class, function ($app): CreateTransactionValidatorService {
             return new CreateTransactionValidatorService();
         });
 

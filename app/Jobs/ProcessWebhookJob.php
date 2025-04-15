@@ -18,7 +18,7 @@ class ProcessWebhookJob implements ShouldQueue
      * Create a new job instance.
      */
     //private Transaction $transaction;
-    public function __construct(private Transaction $transaction)
+    public function __construct(public readonly Transaction $transaction)
     {
     }
 

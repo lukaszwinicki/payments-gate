@@ -3,15 +3,26 @@ includes:
     - vendor/nesbot/carbon/extension.neon
 
 parameters:
-
+    level: 8
     paths:
         - app/
-
-    # Level 10 is the highest level
-    level: 5
-
-#    ignoreErrors:
-#        - '#PHPDoc tag @var#'
-#
-#    excludePaths:
-#        - ./*/*/FileToBeExcluded.php
+        - tests
+    exceptions:
+        check:
+            missingCheckedExceptionInThrows: true
+            tooWideThrowType: true
+        reportUncheckedExceptionDeadCatch: false
+        implicitThrows: false
+        uncheckedExceptionClasses:
+            - 'RuntimeException'
+            - 'BadMethodCallException'
+            - 'LogicException'
+ #       uncheckedExceptionRegexes:
+ #           - '#^Doctrine\\ORM\\#'
+    ignoreErrors:
+        - "#Method [a-zA-Z0-9\\_\\\\:\\(\\)]+ has parameter \\$[a-zA-Z0-9_]+ with no value type specified in iterable type array#"
+        - "#Method [a-zA-Z0-9\\_\\\\:\\(\\)]+ return type has no value type specified in iterable type array#"
+        - "#Property [a-zA-Z0-9\\$\\_\\\\:\\(\\)]+ type has no value type specified in iterable type array#"
+        - "#PHPDoc tag @var for variable [a-zA-Z0-9\\$\\_\\\\:\\(\\)]+ has no value type specified in iterable type array#"
+        - '#PHPDoc tag @mixin contains unknown class Eloquent#'
+        - '#Method Tests\\Feature\\.*::.*\(\) throws checked exception .* but it\'s missing from the PHPDoc @throws tag#'

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Factory\Dtos;
+namespace App\Dtos;
 
 readonly class CreateTransactionDto
 {

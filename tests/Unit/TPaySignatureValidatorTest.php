@@ -14,77 +14,77 @@ class TPaySignatureValidatorTest extends TestCase
         Mockery::close();
         parent::tearDown();
     }
-    public function test_missing_jws_header()
+    public function test_missing_jws_header(): void
     {
         $validator = $this->getMockBuilder(TPaySignatureValidator::class)
-        ->onlyMethods([])  
-        ->getMock();
+            ->onlyMethods([])
+            ->getMock();
         Log::shouldReceive('debug')->once()->with('FALSE - Missing JSW header');
         $result = $validator->confirm('', null);
         $this->assertFalse($result);
     }
 
-    public function test_invalid_jws_header()
+    public function test_invalid_jws_header(): void
     {
         $validator = $this->getMockBuilder(TPaySignatureValidator::class)
-        ->onlyMethods([])  
-        ->getMock();
+            ->onlyMethods([])
+            ->getMock();
         Log::shouldReceive('debug')->once()->with('FALSE - Invalid JWS header');
         $result = $validator->confirm('', '.headers');
         $this->assertFalse($result);
     }
 
-    public function test_invalid_jws_signature()
+    public function test_invalid_jws_signature(): void
     {
         $validator = $this->getMockBuilder(TPaySignatureValidator::class)
-        ->onlyMethods([])  
-        ->getMock();
+            ->onlyMethods([])
+            ->getMock();
         Log::shouldReceive('debug')->once()->with('FALSE - Invalid JWS signature');
         $result = $validator->confirm('', 'header.test');
         $this->assertFalse($result);
     }
 
-    public function test_missing_x5u_header()
+    public function test_missing_x5u_header(): void
     {
         $validator = $this->getMockBuilder(TPaySignatureValidator::class)
-        ->onlyMethods([])  
-        ->getMock();
+            ->onlyMethods([])
+            ->getMock();
         $jws = base64_encode('{"alg":"RS256"}');
         Log::shouldReceive('debug')->once()->with('FALSE - Missing x5u header');
-        $result = $validator->confirm('', $jws.'.payload.test');
+        $result = $validator->confirm('', $jws . '.payload.test');
         $this->assertFalse($result);
     }
 
-    public function test_wrong_x5u_prefix()
+    public function test_wrong_x5u_prefix(): void
     {
         $validator = $this->getMockBuilder(TPaySignatureValidator::class)
-        ->onlyMethods([])  
-        ->getMock();
+            ->onlyMethods([])
+            ->getMock();
 
         $mock = Mockery::mock('alias:Illuminate\Support\Facades\Config');
         $mock->shouldReceive('get')
             ->with('app.tpay.gateway')
             ->andReturn('https://wrong.url');
-        
+
         $jws = base64_encode('{"alg":"RS256","x5u":"https://secure.sandbox.tpay.com/x509/notifications-jws.pem"}');
         Log::shouldReceive('debug')->once()->with('FALSE - Wrong x5u url');
-        $result = $validator->confirm('', $jws.'.payload.test');
+        $result = $validator->confirm('', $jws . '.payload.test');
         $this->assertFalse($result);
     }
 
-    public function test_wrong_certificate()
+    public function test_wrong_certificate(): void
     {
         $validator = $this->getMockBuilder(TPaySignatureValidator::class)
-        ->onlyMethods(['getCertificate','getTrustedCertificate'])  
-        ->getMock();
+            ->onlyMethods(['getCertificate', 'getTrustedCertificate'])
+            ->getMock();
 
-        $validator->expects($this->once())  
-        ->method('getCertificate')
-        ->willReturn('invalid-cert');
+        $validator->expects($this->once())
+            ->method('getCertificate')
+            ->willReturn('invalid-cert');
 
-        $validator->expects($this->once())  
-        ->method('getTrustedCertificate')
-        ->willReturn(file_get_contents(__DIR__.'/Files/TPay/public_key.pem'));
+        $validator->expects($this->once())
+            ->method('getTrustedCertificate')
+            ->willReturn(file_get_contents(__DIR__ . '/Files/TPay/public_key.pem'));
 
         $mock = Mockery::mock('alias:Illuminate\Support\Facades\Config');
         $mock->shouldReceive('get')
@@ -93,24 +93,24 @@ class TPaySignatureValidatorTest extends TestCase
 
         $jws = base64_encode('{"alg":"RS256","x5u":"https://secure.sandbox.tpay.com/x509/notifications-jws.pem"}');
         Log::shouldReceive('debug')->once()->with('FALSE - Signing certificate is not signed by Tpay CA certificate');
-        $result = $validator->confirm('', $jws.'.payload.test');
+        $result = $validator->confirm('', $jws . '.payload.test');
         $this->assertFalse($result);
     }
 
-    public function test_invalid_jws_signature_with_correct_certs()
+    public function test_invalid_jws_signature_with_correct_certs(): void
     {
         $validator = $this->getMockBuilder(TPaySignatureValidator::class)
-        ->onlyMethods(['getCertificate','getTrustedCertificate'])  
-        ->getMock();
+            ->onlyMethods(['getCertificate', 'getTrustedCertificate'])
+            ->getMock();
 
-        $validator->expects($this->once())  
-        ->method('getCertificate')
-        ->willReturn(file_get_contents(__DIR__.'/Files/TPay/certificate.pem'));
+        $validator->expects($this->once())
+            ->method('getCertificate')
+            ->willReturn(file_get_contents(__DIR__ . '/Files/TPay/certificate.pem'));
 
-        $validator->expects($this->once())  
-        ->method('getTrustedCertificate')
-        ->willReturn(file_get_contents(__DIR__.'/Files/TPay/public_key.pem'));
-        
+        $validator->expects($this->once())
+            ->method('getTrustedCertificate')
+            ->willReturn(file_get_contents(__DIR__ . '/Files/TPay/public_key.pem'));
+
         $mock = Mockery::mock('alias:Illuminate\Support\Facades\Config');
         $mock->shouldReceive('get')
             ->with('app.tpay.gateway')
@@ -118,24 +118,26 @@ class TPaySignatureValidatorTest extends TestCase
 
         $jws = base64_encode('{"alg":"RS256","x5u":"https://secure.sandbox.tpay.com/x509/notifications-jws.pem"}');
         Log::shouldReceive('debug')->once()->with('FALSE - Invalid JWS signature with correct certs');
-        $result = $validator->confirm('qwerty', $jws.'.payload.signature');
+        $result = $validator->confirm('qwerty', $jws . '.payload.signature');
         $this->assertFalse($result);
+
+    
     }
 
-    public function test_correct()
+    public function test_correct(): void
     {
         $validator = $this->getMockBuilder(TPaySignatureValidator::class)
-        ->onlyMethods(['getCertificate','getTrustedCertificate'])  
-        ->getMock();
+            ->onlyMethods(['getCertificate', 'getTrustedCertificate'])
+            ->getMock();
 
-        $validator->expects($this->once())  
-        ->method('getCertificate')
-        ->willReturn(file_get_contents(__DIR__.'/Files/TPay/certificate.pem'));
+        $validator->expects($this->once())
+            ->method('getCertificate')
+            ->willReturn(file_get_contents(__DIR__ . '/Files/TPay/certificate.pem'));
 
-        $validator->expects($this->once())  
-        ->method('getTrustedCertificate')
-        ->willReturn(file_get_contents(__DIR__.'/Files/TPay/public_key.pem'));
-        
+        $validator->expects($this->once())
+            ->method('getTrustedCertificate')
+            ->willReturn(file_get_contents(__DIR__ . '/Files/TPay/public_key.pem'));
+
         $mock = Mockery::mock('alias:Illuminate\Support\Facades\Config');
         $mock->shouldReceive('get')
             ->with('app.tpay.gateway')

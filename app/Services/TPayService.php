@@ -3,21 +3,24 @@
 namespace App\Services;
 
 use App\Facades\TPaySignatureValidatorFacade;
-use App\Factory\Dtos\ConfirmTransactionDto;
-use App\Factory\Dtos\CreateTransactionDto;
-use App\Factory\Dtos\RefundPaymentDto;
+use App\Dtos\ConfirmTransactionDto;
+use App\Dtos\CreateTransactionDto;
+use App\Dtos\RefundPaymentDto;
 use App\Models\Transaction;
 use App\Services\PaymentMethodInterface;
 use App\Enums\TransactionStatus;
 use GuzzleHttp\Client;
+use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Cache;
 
+
 class TPayService implements PaymentMethodInterface
 {
-    public function __construct(public ?Client $client = new Client())
+    public function __construct(public Client $client = new Client())
     {
     }
+
     public function create(array $transactionBody): ?CreateTransactionDto
     {
         $uuid = Str::uuid();
@@ -36,15 +39,19 @@ class TPayService implements PaymentMethodInterface
             ]
         ];
 
-        $createTransaction = $this->client->request('POST', config('app.tpay.openApiUrl') . '/transactions', [
-            'headers' => [
-                'authorization' => 'Bearer ' . $this->accessToken()
-            ],
-            'json' => $tpayRequestBody,
-            'http_errors' => false
-        ]);
+        try {
+            $createTransaction = $this->client->request('POST', config('app.tpay.openApiUrl') . '/transactions', [
+                'headers' => [
+                    'authorization' => 'Bearer ' . $this->accessToken()
+                ],
+                'json' => $tpayRequestBody,
+                'http_errors' => false
+            ]);
+        } catch (GuzzleException $e) {
+            throw new \RuntimeException('The transaction could not be completed');
+        }
 
-        if ($createTransaction->getStatusCode() === 500) {
+        if ($createTransaction->getStatusCode() !== 200) {
             return null;
         }
 
@@ -62,82 +69,87 @@ class TPayService implements PaymentMethodInterface
         return $createTransactionDto;
     }
 
-    public function confirm(string $webHookBody, array $headers): ConfirmTransactionDto
+    public function confirm(array $webHookBody, array $headers): ConfirmTransactionDto
     {
         $jws = $headers['x-jws-signature'][0];
-        $resultValidate = TPaySignatureValidatorFacade::confirm($webHookBody, $jws);
+        $resultValidate = TPaySignatureValidatorFacade::confirm(http_build_query($webHookBody), $jws);
 
         if (!$resultValidate) {
             return new ConfirmTransactionDto(TransactionStatus::FAIL);
         }
 
-        // Converts x-www-form-urlencode to array  
-        parse_str(urldecode($webHookBody), $result);
-        $json = json_encode($result);
-        $tpayWebhookBody = json_decode($json, true);
-        $remoteCode = $tpayWebhookBody['tr_crc'];
+        $remoteCode = $webHookBody['tr_crc'];
         $completed = false;
         $status = null;
 
-        if ($tpayWebhookBody['tr_status'] == 'TRUE') {
-            $completed = $tpayWebhookBody['tr_status'] == 'TRUE';
+        if ($webHookBody['tr_status'] == 'TRUE') {
+            $completed = $webHookBody['tr_status'] == 'TRUE';
             $status = TransactionStatus::SUCCESS;
         }
 
-        if ($tpayWebhookBody['tr_status'] == 'CHARGEBACK') {
-            $completed = $tpayWebhookBody['tr_status'] == 'CHARGEBACK';
+        if ($webHookBody['tr_status'] == 'CHARGEBACK') {
+            $completed = $webHookBody['tr_status'] == 'CHARGEBACK';
             $status = TransactionStatus::REFUND;
         }
 
-        return new ConfirmTransactionDto($status, 'TRUE', $remoteCode, $completed);
+        return new ConfirmTransactionDto($status ?? TransactionStatus::FAIL, 'TRUE', $remoteCode, $completed);
     }
 
 
-    public function refund(string $transactionUuid): ?RefundPaymentDto
+    public function refund(array $refundBody): ?RefundPaymentDto
     {
-        $transaction = Transaction::where('transaction_uuid', $transactionUuid)->first();
-        if ($transaction->status === TransactionStatus::REFUND) {
+        $transaction = Transaction::where('transaction_uuid', $refundBody['transactionUuid'])->first();
+
+        if ($transaction && $transaction->status === TransactionStatus::REFUND) {
             return null;
-        } 
+        }
 
-        $responseRefund = $this->client->request('POST', config('app.tpay.openApiUrl') . '/transactions/' . $transaction->transactions_id . '/refunds', [
-            'headers' => [
-                'authorization' => 'Bearer ' . $this->accessToken()
-            ],
-            'http_errors' => false
-        ]);
+        try {
+            $responseRefund = $this->client->request('POST', config('app.tpay.openApiUrl') . '/transactions/' . $transaction?->transactions_id . '/refunds', [
+                'headers' => [
+                    'authorization' => 'Bearer ' . $this->accessToken(),
+                ],
+                'http_errors' => false
+            ]);
+        } catch (GuzzleException $e) {
+            throw new \RuntimeException('Failed to refund payment');
+        }
 
-        if ($responseRefund->getStatusCode() === 500) {
+        if ($responseRefund->getStatusCode() !== 200) {
             return null;
         }
 
         $responseBodyRefund = json_decode($responseRefund->getBody()->getContents(), true);
-        if ($responseRefund->getStatusCode() == 200 && $responseBodyRefund['result'] === 'success' && $responseBodyRefund['status'] === 'refund') {
+
+        if ($responseBodyRefund['result'] === 'success' && $responseBodyRefund['status'] === 'refund') {
             return new RefundPaymentDto(TransactionStatus::REFUND);
         }
 
         return null;
     }
 
-    public function getToken()
+    public function getToken(): string
     {
         $tokenBody = [
             'client_id' => config('app.tpay.tokenClientId'),
             'client_secret' => config('app.tpay.tokenClientSecret')
         ];
 
-        $getTokenResponse = $this->client->request('POST', config('app.tpay.openApiUrl') . '/oauth/auth', [
-            'json' => $tokenBody,
-            'http_errors' => false
-        ]);
+        try {
+            $getTokenResponse = $this->client->request('POST', config('app.tpay.openApiUrl') . '/oauth/auth', [
+                'json' => $tokenBody,
+                'http_errors' => false
+            ]);
+        } catch (GuzzleException $e) {
+            throw new \RuntimeException('Failed to get token');
+        }
 
         $token = json_decode($getTokenResponse->getBody()->getContents(), true);
         Cache::put('token', $token['access_token'], 120);
-
         return $token['access_token'];
     }
 
-    private function accessToken()
+    private function accessToken(): string
     {
         $accessToken = Cache::get('token');
         if (!Cache::has('token')) {

@@ -5,6 +5,8 @@ namespace App\Providers;
 use App\Services\CreateTransactionValidatorService;
 use App\Services\TPaySignatureValidator;
 use Illuminate\Support\ServiceProvider;
+use App\Services\TPayService;
+use GuzzleHttp\Client;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -19,6 +21,10 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->singleton('tpay-signature-validator', function ($app) {
             return new TPaySignatureValidator();
+        });
+
+        $this->app->bind(TPayService::class, function () {
+            return new TPayService(new Client());
         });
     }
 

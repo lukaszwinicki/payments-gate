@@ -36,8 +36,12 @@ class Notification extends Model
         'type_status'
     ];
 
+    /**
+     * @return BelongsTo<\App\Models\Transaction, \App\Models\Notification>
+     */
     public function transaction(): BelongsTo
     {
+        /** @var BelongsTo<\App\Models\Transaction, \App\Models\Notification> */
         return $this->belongsTo(Transaction::class);
     }
 

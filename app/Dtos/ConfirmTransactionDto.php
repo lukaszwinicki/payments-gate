@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Factory\Dtos;
+namespace App\Dtos;
 
 use App\Enums\TransactionStatus;
 

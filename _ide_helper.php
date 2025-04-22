@@ -54,6 +54,29 @@ namespace App\Facades {
             }
     }
 
+namespace L5Swagger {
+    /**
+     * 
+     *
+     */
+    class L5SwaggerFacade {
+        /**
+         * Generate necessary documentation files by scanning and processing the required data.
+         *
+         * @return void 
+         * @throws L5SwaggerException
+         * @throws Exception
+         * @static 
+         */
+        public static function generateDocs()
+        {
+            /** @var \L5Swagger\Generator $instance */
+            $instance->generateDocs();
+        }
+
+            }
+    }
+
 namespace Illuminate\Http {
     /**
      * 
@@ -141,6 +164,7 @@ namespace Illuminate\Http {
 
 namespace  {
     class TPaySignatureValidator extends \App\Facades\TPaySignatureValidatorFacade {}
+    class L5Swagger extends \L5Swagger\L5SwaggerFacade {}
 }
 
 

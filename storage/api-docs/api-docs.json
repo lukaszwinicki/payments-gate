@@ -1,0 +1,183 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "Payments Gate",
+        "description": "API do obsługi transakcji płatniczych",
+        "version": "1.0.0"
+    },
+    "paths": {
+        "/api/create-transaction": {
+            "post": {
+                "tags": [
+                    "Transactions"
+                ],
+                "summary": "Create new transaction",
+                "operationId": "0b946754e09859751bb0d713cef1404d",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "amount",
+                                    "email",
+                                    "name",
+                                    "paymentMethod",
+                                    "notificationUrl"
+                                ],
+                                "properties": {
+                                    "amount": {
+                                        "type": "string",
+                                        "example": "12.34"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "example": "jan.kowalski@gmail.com"
+                                    },
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Jan Kowalski"
+                                    },
+                                    "paymentMethod": {
+                                        "type": "string",
+                                        "example": "TPAY"
+                                    },
+                                    "notificationUrl": {
+                                        "type": "string",
+                                        "example": "https://test.payment-gate.pl/callback"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Transaction created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "link": {
+                                            "type": "string",
+                                            "example": "https://link-to-payment"
+                                        },
+                                        "transactionUuid": {
+                                            "type": "string",
+                                            "example": "c6e2c816-3f5e-417b-9e91-a794223aa903"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid transaction data provided",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "error": {
+                                            "type": "string",
+                                            "example": "The transaction could not be completed"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/refund-payment": {
+            "post": {
+                "tags": [
+                    "Transactions"
+                ],
+                "summary": "Refund payment",
+                "operationId": "58f3d9871ca37f979a5dee7bd8c7f5e3",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "transactionUuid"
+                                ],
+                                "properties": {
+                                    "transactionUuid": {
+                                        "type": "string",
+                                        "example": "c6e2c816-3f5e-417b-9e91-a794223aa903"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Payment refund",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "string",
+                                            "example": "Refund"
+                                        },
+                                        "transactionUuid": {
+                                            "type": "string",
+                                            "example": "c6e2c816-3f5e-417b-9e91-a794223aa903"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid transaction data provided",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "error": {
+                                            "type": "string",
+                                            "example": "Refund payment not completed."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "tags": [
+        {
+            "name": "Transactions",
+            "description": "Transactions"
+        }
+    ],
+    "components": {
+        "securitySchemes": {
+            "api_key": {
+                "type": "apiKey",
+                "description": "Wprowadź swój klucz API",
+                "name": "X-API-Key",
+                "in": "header"
+            }
+        }
+    },
+    "security": [
+        {
+            "api_key": []
+        }
+    ]
+}

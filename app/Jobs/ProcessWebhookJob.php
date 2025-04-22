@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Enums\TransactionStatus;
+use App\Models\Merchant;
 use App\Models\Notification;
 use Exception;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -17,8 +18,7 @@ class ProcessWebhookJob implements ShouldQueue
     /**
      * Create a new job instance.
      */
-    //private Transaction $transaction;
-    public function __construct(private Transaction $transaction)
+    public function __construct(public readonly Transaction $transaction)
     {
     }
 
@@ -28,8 +28,8 @@ class ProcessWebhookJob implements ShouldQueue
     public function handle(): void
     {
         $client = new Client();
-
-        $signature = hash_hmac('sha256', $this->transaction->status->value . $this->transaction->transaction_uuid, config('app.signatureSecretKey'));
+        $merchantSecretKey = Merchant::where('id', $this->transaction->merchant_id)->first();
+        $signature = hash_hmac('sha256', $this->transaction->status->value . $this->transaction->transaction_uuid, $merchantSecretKey->secret_key);
         $clientWebhookBody = [
             'signature' => $signature,
             'transaction_uuid' => $this->transaction->transaction_uuid,

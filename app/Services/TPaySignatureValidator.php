@@ -84,12 +84,12 @@ class TPaySignatureValidator
         return true;
     }
 
-    public function getCertificate(string $x5u)
+    public function getCertificate(string $x5u): string
     {
         return file_get_contents($x5u);
     }
 
-    public function getTrustedCertificate()
+    public function getTrustedCertificate(): string
     {
         return file_get_contents(config('app.tpay.gateway') . "/x509/tpay-jws-root.pem");
     }

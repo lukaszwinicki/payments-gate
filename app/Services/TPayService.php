@@ -34,7 +34,7 @@ class TPayService implements PaymentMethodInterface
             ],
             'callbacks' => [
                 'notification' => [
-                    'url' => config('app.url') . '/api/confirm-transaction?payment_method=' . $transactionBody['payment_method']
+                    'url' => config('app.url') . '/api/confirm-transaction?payment_method=' . $transactionBody['paymentMethod']
                 ]
             ]
         ];

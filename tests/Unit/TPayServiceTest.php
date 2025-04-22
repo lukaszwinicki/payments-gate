@@ -34,7 +34,7 @@ class TPayServiceTest extends TestCase
             'amount' => 100,
             'email' => 'jankowalski@example.com',
             'name' => 'Jan Kowalski',
-            'payment_method' => 'TPAY',
+            'paymentMethod' => 'TPAY',
         ];
 
         $mockedResponse = [
@@ -83,7 +83,7 @@ class TPayServiceTest extends TestCase
             'amount' => 100,
             'email' => 'jankowalski@example.com',
             'name' => 'Jan Kowalski',
-            'payment_method' => 'TPAY',
+            'paymentMethod' => 'TPAY',
         ];
 
         $mock = new MockHandler([

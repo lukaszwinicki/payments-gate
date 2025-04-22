@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\TransactionStatus;
 use App\Jobs\ProcessWebhookJob;
+use App\Models\Merchant;
 use App\Models\Transaction;
 use App\Services\TPayService;
 use GuzzleHttp\Client;
@@ -28,11 +29,15 @@ class TransactionControllerTest extends TestCase
     {
         $transactionBody = [
             'email' => 'jankowalski@gmail.com',
-            'payment_method' => 'TPAY',
-            'notification_url' => 'https://notification.url'
+            'paymentMethod' => 'TPAY',
+            'notificationUrl' => 'https://notification.url'
         ];
 
-        $response = $this->postJson('/api/create-transaction', $transactionBody);
+        Merchant::factory()->create();
+
+        $response = $this->withHeaders([
+            'X-API-Key' => 'testowy-api-key'
+        ])->postJson('/api/create-transaction', $transactionBody);
         $response->assertStatus(422);
         $response->assertJsonStructure([
             'error' => [
@@ -48,8 +53,8 @@ class TransactionControllerTest extends TestCase
             'amount' => 100,
             'email' => 'jankowalski@gmail.com',
             'name' => 'Jan Kowalski',
-            'payment_method' => 'TPAY',
-            'notification_url' => 'https://notification.url'
+            'paymentMethod' => 'TPAY',
+            'notificationUrl' => 'https://notification.url'
         ];
 
 
@@ -64,7 +69,11 @@ class TransactionControllerTest extends TestCase
         $tpayService = new TPayService($client);
         $this->app->bind(TPayService::class, fn() => $tpayService);
 
-        $response = $this->postJson('/api/create-transaction', $transactionBody);
+        Merchant::factory()->create();
+
+        $response = $this->withHeaders([
+            'X-API-Key' => 'testowy-api-key'
+        ])->postJson('/api/create-transaction', $transactionBody);
         $response->assertStatus(500);
         $response->assertJson([
             'error' => 'The transaction could not be completed'
@@ -77,8 +86,8 @@ class TransactionControllerTest extends TestCase
             'amount' => 100,
             'email' => 'jankowalski@gmail.com',
             'name' => 'Jan Kowalski',
-            'payment_method' => 'TPAY',
-            'notification_url' => 'https://notification.url'
+            'paymentMethod' => 'TPAY',
+            'notificationUrl' => 'https://notification.url'
         ];
 
         $mockedResponse = [
@@ -104,14 +113,18 @@ class TransactionControllerTest extends TestCase
         $tpayService = new TPayService($client);
         $this->app->bind(TPayService::class, fn() => $tpayService);
 
-        $response = $this->postJson('/api/create-transaction', $transactionBody);
+        Merchant::factory()->create();
+
+        $response = $this->withHeaders([
+            'X-API-Key' => 'testowy-api-key'
+        ])->postJson('/api/create-transaction', $transactionBody);
         $response->assertStatus(200);
         $content = $response->getContent();
 
         $this->assertIsString($content);
         $result = json_decode($content, true);
         $this->assertEquals('https://example.com/link', $result['link']);
-        $transaction = Transaction::where('transaction_uuid', $result['transaction_uuid'])->first();
+        $transaction = Transaction::where('transaction_uuid', $result['transactionUuid'])->first();
         $this->assertNotNull($transaction);
 
         $headers = [
@@ -136,7 +149,7 @@ class TransactionControllerTest extends TestCase
         Queue::fake();
 
         $response = $this->withHeaders($headers)
-            ->post('/api/confirm-transaction?payment_method=' . $transactionBody['payment_method'], $webhookBody);
+            ->post('/api/confirm-transaction?payment_method=' . $transactionBody['paymentMethod'], $webhookBody);
         $response->assertStatus(200);
 
         $this->assertDatabaseHas('transactions', [
@@ -199,51 +212,29 @@ class TransactionControllerTest extends TestCase
 
         $this->assertIsString($content);
         $result = json_decode($content, true);
-        $this->assertEquals('a875e396-3c67-4415-a865-1fcea225154e', $result['transaction_uuid']);
+        $this->assertEquals('a875e396-3c67-4415-a865-1fcea225154e', $result['transactionUuid']);
     }
 
-    public function test_refund_payment_missing_payment_method_or_transactionUuid(): void
+    public function test_refund_payment_missing_transactionUuid(): void
     {
         $refundBody = [
-            'payment_method' => '',
-            'transactionUuid' => 'a875e396-3c67-4415-a865-1fcea225154e'
+            'transactionUuid' => ''
         ];
 
-        $response = $this->post('/api/refund-payment', $refundBody);
+        Merchant::factory()->create();
+
+        $response = $this->withHeaders([
+            'X-API-Key' => 'testowy-api-key'
+        ])->post('/api/refund-payment', $refundBody);
         $response->assertStatus(400);
         $response->assertJson([
             'error' => 'Missing or invalid data.'
         ]);
     }
 
-    public function test_refund_payment_transaction_is_refunded(): void
+    public function test_refund_payment_invalid_transactionUuid(): void
     {
         $refundBody = [
-            'payment_method' => 'TPAY',
-            'transactionUuid' => '470ea80c-3929-4ee7-964e-c9eb4ac422df'
-        ];
-
-        $transaction = Transaction::factory()->create([
-            'transaction_uuid' => '470ea80c-3929-4ee7-964e-c9eb4ac422df',
-            'status' => TransactionStatus::REFUND
-        ]);
-
-        $response = $this->post('/api/refund-payment', $refundBody);
-        $response->assertStatus(500);
-        $response->assertJson([
-            'error' => 'Refund payment not completed.'
-        ]);
-
-        $this->assertDatabaseHas('transactions', [
-            'transaction_uuid' => $transaction->transaction_uuid
-        ]);
-        $this->assertEquals(TransactionStatus::REFUND, $transaction->status);
-    }
-
-    public function test_refund_payment_invalid_transaction_uuid(): void
-    {
-        $refundBody = [
-            'payment_method' => 'TPAY',
             'transactionUuid' => 'invalid-uuid'
         ];
 
@@ -258,20 +249,51 @@ class TransactionControllerTest extends TestCase
         $tpayService = new TPayService($client);
         $this->app->bind(TPayService::class, fn() => $tpayService);
 
-        $response = $this->post('/api/refund-payment', $refundBody);
+        Merchant::factory()->create();
+
+
+        $response = $this->withHeaders([
+            'X-API-Key' => 'testowy-api-key'
+        ])->post('/api/refund-payment', $refundBody);
+        $response->assertStatus(400);
+        $response->assertJson([
+            'error' => 'Missing or invalid data.'
+        ]);
+    }
+
+    public function test_refund_payment_transaction_is_refunded(): void
+    {
+        $refundBody = [
+            'transactionUuid' => '470ea80c-3929-4ee7-964e-c9eb4ac422df'
+        ];
+
+        Merchant::factory()->create();
+        $transaction = Transaction::factory()->create([
+            'transaction_uuid' => '470ea80c-3929-4ee7-964e-c9eb4ac422df',
+            'status' => TransactionStatus::REFUND
+        ]);
+
+        $response = $this->withHeaders([
+            'X-API-Key' => 'testowy-api-key'
+        ])->post('/api/refund-payment', $refundBody);
         $response->assertStatus(500);
         $response->assertJson([
             'error' => 'Refund payment not completed.'
         ]);
+
+        $this->assertDatabaseHas('transactions', [
+            'transaction_uuid' => $transaction->transaction_uuid
+        ]);
+        $this->assertEquals(TransactionStatus::REFUND, $transaction->status);
     }
 
     public function test_refund_payment_is_success(): void
     {
         $refundBody = [
-            'payment_method' => 'TPAY',
             'transactionUuid' => '470ea80c-3929-4ee7-964e-c9eb4ac422df'
         ];
 
+        Merchant::factory()->create();
         Transaction::factory()->create([
             'transaction_uuid' => '470ea80c-3929-4ee7-964e-c9eb4ac422df',
         ]);
@@ -289,7 +311,9 @@ class TransactionControllerTest extends TestCase
 
         Queue::fake();
 
-        $response = $this->post('/api/refund-payment', $refundBody);
+        $response = $this->withHeaders([
+            'X-API-Key' => 'testowy-api-key'
+        ])->post('/api/refund-payment', $refundBody);
         $response->assertStatus(200);
         $response->assertJson([
             'success' => 'Refund'
@@ -298,8 +322,8 @@ class TransactionControllerTest extends TestCase
         $content = $response->getContent();
         $this->assertIsString($content);
         $result = json_decode($content, true);
-        $this->assertEquals('470ea80c-3929-4ee7-964e-c9eb4ac422df', $result['transaction_uuid']);
-        $transaction = Transaction::where('transaction_uuid', $result['transaction_uuid'])->first();
+        $this->assertEquals('470ea80c-3929-4ee7-964e-c9eb4ac422df', $result['transactionUuid']);
+        $transaction = Transaction::where('transaction_uuid', $result['transactionUuid'])->first();
         $this->assertNotNull($transaction);
         $this->assertDatabaseHas('transactions', [
             'transaction_uuid' => $transaction->transaction_uuid

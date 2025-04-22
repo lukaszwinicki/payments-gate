@@ -4,6 +4,7 @@ namespace Database\Factories;
 
 use App\Enums\PaymentMethod;
 use App\Enums\TransactionStatus;
+use App\Models\Merchant;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -21,13 +22,14 @@ class TransactionFactory extends Factory
         return [
             'transaction_uuid' => $this->faker->uuid(),
             'transactions_id' => $this->faker->unique()->numberBetween(1000, 9999),
+            'merchant_id' => Merchant::factory(),
             'amount' => $this->faker->randomFloat(2, 1, 1000),
             'name' => $this->faker->name(),
             'email' => $this->faker->unique()->safeEmail(),
-            'currency' => 'PLN', 
-            'status' => TransactionStatus::SUCCESS, 
+            'currency' => 'PLN',
+            'status' => TransactionStatus::SUCCESS,
             'notification_url' => $this->faker->url(),
-            'payment_method' => PaymentMethod::PAYMENT_METHOD_TPAY->value, 
+            'payment_method' => PaymentMethod::PAYMENT_METHOD_TPAY->value,
         ];
     }
 }

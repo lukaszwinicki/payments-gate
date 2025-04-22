@@ -13,15 +13,15 @@ class CreateTransactionValidatorService
             'amount' => 'required|numeric',
             'email' => 'required|email:rfc,dns|max:255',
             'name' => 'required|string|max:255',
-            'payment_method' => 'required|string',
-            'notification_url' => 'required|string|url'
+            'paymentMethod' => 'required|string',
+            'notificationUrl' => 'required|string|url'
         ];
 
         $validator = Validator::make($transactionBody, $rules);
 
         $validator->after(function ($validator) use ($transactionBody) {
-            if (!PaymentMethod::tryFrom($transactionBody['payment_method'])) {
-                $validator->errors()->add('payment_method', 'Invalid payment method.');
+            if (!PaymentMethod::tryFrom($transactionBody['paymentMethod'])) {
+                $validator->errors()->add('paymentMethod', 'Invalid payment method.');
             }
         });
 

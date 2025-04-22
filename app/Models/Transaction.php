@@ -6,6 +6,7 @@ use App\Enums\PaymentMethod;
 use App\Enums\TransactionStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 
@@ -15,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $id
  * @property string $transaction_uuid
  * @property string $transactions_id
+ * @property int $merchant_id
  * @property string $amount
  * @property string $name
  * @property string $email
@@ -24,8 +26,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property PaymentMethod $payment_method
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\Merchant $merchant
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Notification> $notifications
  * @property-read int|null $notifications_count
+ * @method static \Database\Factories\TransactionFactory factory($count = null, $state = [])
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction query()
@@ -34,6 +38,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereCurrency($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereEmail($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereMerchantId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereName($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereNotificationUrl($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction wherePaymentMethod($value)
@@ -49,6 +54,7 @@ class Transaction extends Model
     protected $fillable = [
         'transaction_uuid',
         'transactions_id',
+        'merchant_id',
         'amount',
         'name',
         'email',
@@ -65,6 +71,11 @@ class Transaction extends Model
     {
         /** @var HasMany<\App\Models\Notification, \App\Models\Transaction> */
         return $this->hasMany(Notification::class);
+    }
+
+    public function merchant(): BelongsTo
+    {
+        return $this->BelongsTo(Merchant::class);
     }
 
     protected function casts(): array

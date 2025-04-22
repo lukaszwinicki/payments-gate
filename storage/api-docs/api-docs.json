@@ -22,8 +22,8 @@
                                     "amount",
                                     "email",
                                     "name",
-                                    "payment_method",
-                                    "notification_url"
+                                    "paymentMethod",
+                                    "notificationUrl"
                                 ],
                                 "properties": {
                                     "amount": {
@@ -38,11 +38,11 @@
                                         "type": "string",
                                         "example": "Jan Kowalski"
                                     },
-                                    "payment_method": {
+                                    "paymentMethod": {
                                         "type": "string",
                                         "example": "TPAY"
                                     },
-                                    "notification_url": {
+                                    "notificationUrl": {
                                         "type": "string",
                                         "example": "https://test.payment-gate.pl/callback"
                                     }
@@ -63,7 +63,7 @@
                                             "type": "string",
                                             "example": "https://link-to-payment"
                                         },
-                                        "transaction_uuid": {
+                                        "transactionUuid": {
                                             "type": "string",
                                             "example": "c6e2c816-3f5e-417b-9e91-a794223aa903"
                                         }
@@ -105,15 +105,10 @@
                         "application/json": {
                             "schema": {
                                 "required": [
-                                    "payment_method",
                                     "transactionUuid"
                                 ],
                                 "properties": {
-                                    "payment_method": {
-                                        "type": "string",
-                                        "example": "TPAY"
-                                    },
-                                    "transaction_uuid": {
+                                    "transactionUuid": {
                                         "type": "string",
                                         "example": "c6e2c816-3f5e-417b-9e91-a794223aa903"
                                     }
@@ -134,7 +129,7 @@
                                             "type": "string",
                                             "example": "Refund"
                                         },
-                                        "transaction_uuid": {
+                                        "transactionUuid": {
                                             "type": "string",
                                             "example": "c6e2c816-3f5e-417b-9e91-a794223aa903"
                                         }
@@ -168,6 +163,21 @@
         {
             "name": "Transactions",
             "description": "Transactions"
+        }
+    ],
+    "components": {
+        "securitySchemes": {
+            "api_key": {
+                "type": "apiKey",
+                "description": "Wprowadź swój klucz API",
+                "name": "X-API-Key",
+                "in": "header"
+            }
+        }
+    },
+    "security": [
+        {
+            "api_key": []
         }
     ]
 }

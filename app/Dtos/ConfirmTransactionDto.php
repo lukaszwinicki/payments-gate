@@ -10,7 +10,6 @@ readonly class ConfirmTransactionDto
       public TransactionStatus $status,
       public string $responseBody = '',
       public string $remoteCode = '',
-      public bool $completed = false
    ) {
    }
 }

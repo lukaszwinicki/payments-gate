@@ -5,6 +5,7 @@ namespace App\Factory;
 use App\Enums\PaymentMethod;
 use App\Services\PaymentMethodInterface;
 use App\Services\TPayService;
+use App\Services\PaynowService;
 use Nette\NotImplementedException;
 use Illuminate\Support\Facades\App;
 
@@ -15,6 +16,7 @@ class PaymentMethodFactory
     {
         return match ($paymentMethod) {
             PaymentMethod::PAYMENT_METHOD_TPAY => App::make(TPayService::class),
+            PaymentMethod::PAYMENT_METHOD_PAYNOW => App::make(PaynowService::class),
             default => throw new NotImplementedException("Payment method " . ($paymentMethod) . " is not implemented.")
         };
     }

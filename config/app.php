@@ -134,5 +134,9 @@ return [
         'tokenClientSecret' => env('TPAY_TOKEN_CLIENT_SECRET'),
     ],
 
-    'signatureSecretKey' => env('SIGNATURE_SECRET_KEY')
+    'paynow' => [
+        'sandboxApiUrl' => env('PAYNOW_SANDBOX_API_URL'),
+        'apiKey' => env('PAYNOW_API_KEY'),
+        'signatureKey' => env('PAYNOW_SIGNATURE_KEY')
+    ]
 ];

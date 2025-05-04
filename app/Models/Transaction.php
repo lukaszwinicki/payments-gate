@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $transaction_uuid
  * @property string $transactions_id
  * @property int $merchant_id
+ * @property string|null $refund_code
  * @property string $amount
  * @property string $name
  * @property string $email
@@ -42,6 +43,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereName($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereNotificationUrl($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction wherePaymentMethod($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereRefundCode($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereStatus($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereTransactionUuid($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereTransactionsId($value)
@@ -55,6 +57,7 @@ class Transaction extends Model
         'transaction_uuid',
         'transactions_id',
         'merchant_id',
+        'refund_code',
         'amount',
         'name',
         'email',

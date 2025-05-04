@@ -34,7 +34,7 @@ class TPayService implements PaymentMethodInterface
             ],
             'callbacks' => [
                 'notification' => [
-                    'url' => config('app.url') . '/api/confirm-transaction?payment_method=' . $transactionBody['paymentMethod']
+                    'url' => config('app.url') . '/api/confirm-transaction?payment-method=' . $transactionBody['paymentMethod']
                 ]
             ]
         ];
@@ -79,30 +79,32 @@ class TPayService implements PaymentMethodInterface
         }
 
         $remoteCode = $webHookBody['tr_crc'];
-        $completed = false;
         $status = null;
 
         if ($webHookBody['tr_status'] == 'TRUE') {
-            $completed = $webHookBody['tr_status'] == 'TRUE';
             $status = TransactionStatus::SUCCESS;
         }
 
         if ($webHookBody['tr_status'] == 'CHARGEBACK') {
-            $completed = $webHookBody['tr_status'] == 'CHARGEBACK';
-            $status = TransactionStatus::REFUND;
+            $status = TransactionStatus::REFUND_SUCCESS;
         }
 
-        return new ConfirmTransactionDto($status ?? TransactionStatus::FAIL, 'TRUE', $remoteCode, $completed);
+        return new ConfirmTransactionDto($status ?? TransactionStatus::FAIL, 'TRUE', $remoteCode);
     }
-
 
     public function refund(array $refundBody): ?RefundPaymentDto
     {
         $transaction = Transaction::where('transaction_uuid', $refundBody['transactionUuid'])->first();
 
-        if ($transaction && $transaction->status === TransactionStatus::REFUND) {
+        if (
+            $transaction &&
+            in_array($transaction->status, [
+                TransactionStatus::REFUND_SUCCESS,
+                TransactionStatus::REFUND_PENDING,
+                TransactionStatus::REFUND_FAIL,
+            ])
+        )
             return null;
-        }
 
         try {
             $responseRefund = $this->client->request('POST', config('app.tpay.openApiUrl') . '/transactions/' . $transaction?->transactions_id . '/refunds', [
@@ -122,7 +124,7 @@ class TPayService implements PaymentMethodInterface
         $responseBodyRefund = json_decode($responseRefund->getBody()->getContents(), true);
 
         if ($responseBodyRefund['result'] === 'success' && $responseBodyRefund['status'] === 'refund') {
-            return new RefundPaymentDto(TransactionStatus::REFUND);
+            return new RefundPaymentDto(TransactionStatus::REFUND_PENDING);
         }
 
         return null;

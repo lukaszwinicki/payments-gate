@@ -75,7 +75,7 @@ class TransactionController extends Controller
             return response()->json(['error' => 'The transaction could not be completed'], 500);
         }
 
-        $merchantId = Merchant::where('api_key', $apiKeyHeader['X-API-Key'][0])->first();
+        $merchantId = Merchant::where('api_key', $apiKeyHeader['x-api-key'][0])->first();
 
         $transaction = new Transaction();
         $transaction->transaction_uuid = $createTransactionDto->uuid;
@@ -97,23 +97,21 @@ class TransactionController extends Controller
     {
         $webHookBody = $request->getContentTypeFormat() == 'json' ? $request->json()->all() : $request->request->all();
         $headers = $request->header();
-
-        $paymentSevice = PaymentMethodFactory::getInstanceByPaymentMethod(PaymentMethod::tryFrom($request->query('payment_method')));
+        
+        $paymentSevice = PaymentMethodFactory::getInstanceByPaymentMethod(PaymentMethod::tryFrom($request->query('payment-method')));
         $confirmTransactionDto = $paymentSevice->confirm($webHookBody, $headers);
 
-        if ($confirmTransactionDto->status === TransactionStatus::SUCCESS) {
-            Transaction::where('transaction_uuid', $confirmTransactionDto->remoteCode)->update([
-                'status' => $confirmTransactionDto->completed ? TransactionStatus::SUCCESS : TransactionStatus::FAIL
-            ]);
+        if ($confirmTransactionDto->status) {
             $transaction = Transaction::where('transaction_uuid', $confirmTransactionDto->remoteCode)->first();
 
             if ($transaction) {
+                $transaction->update([
+                    'status' => $confirmTransactionDto->status
+                ]);
                 ProcessWebhookJob::dispatch($transaction);
             }
 
             return response($confirmTransactionDto->responseBody, 200);
-        } elseif ($confirmTransactionDto->status === TransactionStatus::REFUND) {
-            return response()->json(['transactionUuid' => $confirmTransactionDto->remoteCode], 200);
         } else {
             return response()->json(['error' => 'Invalid webhook payload or signature.'], 500);
         }
@@ -166,8 +164,8 @@ class TransactionController extends Controller
         $paymentService = PaymentMethodFactory::getInstanceByPaymentMethod($transaction->payment_method);
         $refundPaymentDto = $paymentService->refund($refundBody);
 
-        if ($transaction && $refundPaymentDto !== null && $refundPaymentDto->status === TransactionStatus::REFUND) {
-            $transaction->status = TransactionStatus::REFUND;
+        if ($transaction && $refundPaymentDto !== null && $refundPaymentDto->status === TransactionStatus::REFUND_PENDING) {
+            $transaction->status = TransactionStatus::REFUND_PENDING;
             $transaction->save();
             ProcessWebhookJob::dispatch($transaction);
 

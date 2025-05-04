@@ -165,7 +165,6 @@ class TPayServiceTest extends TestCase
         $this->assertEquals(TransactionStatus::SUCCESS, $result->status);
         $this->assertEquals('TRUE', $result->responseBody);
         $this->assertEquals('123456789', $result->remoteCode);
-        $this->assertEquals(true, $result->completed);
     }
 
     public function test_confirm_tr_status_is_chargeback(): void
@@ -184,10 +183,9 @@ class TPayServiceTest extends TestCase
         $paymentService = new TPayService();
         $result = $paymentService->confirm($webhookBody, $headers);
         $this->assertInstanceOf(ConfirmTransactionDto::class, $result);
-        $this->assertEquals(TransactionStatus::REFUND, $result->status);
+        $this->assertEquals(TransactionStatus::REFUND_SUCCESS, $result->status);
         $this->assertEquals('TRUE', $result->responseBody);
         $this->assertEquals('123456789', $result->remoteCode);
-        $this->assertEquals(true, $result->completed);
     }
 
     public function test_refund_success(): void
@@ -225,7 +223,6 @@ class TPayServiceTest extends TestCase
         $client = new Client(['handler' => $handlerStack]);
         $paymentService = new TPayService($client);
         $refundBody = [
-            'payment_method' => 'TPAY',
             'transactionUuid' => 'valid-uuid'
         ];
         $result = $paymentService->refund($refundBody);
@@ -235,10 +232,10 @@ class TPayServiceTest extends TestCase
         $this->assertEquals('12345', $transaction->transactions_id);
         $this->assertEquals('valid-uuid', $transaction->transaction_uuid);
         $this->assertInstanceOf(RefundPaymentDto::class, $result);
-        $this->assertEquals(TransactionStatus::REFUND, $result->status);
+        $this->assertEquals(TransactionStatus::REFUND_PENDING, $result->status);
     }
 
-    public function test_refund_failed(): void
+        public function test_refund_failed(): void
     {
         $mockTransaction = Mockery::mock('alias:App\Models\Transaction');
         $mockTransaction->shouldReceive('where')
@@ -268,7 +265,6 @@ class TPayServiceTest extends TestCase
         $client = new Client(['handler' => $handlerStack]);
         $paymentService = new TPayService($client);
         $refundBody = [
-            'payment_method' => 'TPAY',
             'transactionUuid' => 'valid-uuid'
         ];
         $result = $paymentService->refund($refundBody);
@@ -286,20 +282,19 @@ class TPayServiceTest extends TestCase
             ->andReturn((object) [
                 'transactions_id' => '12345',
                 'transaction_uuid' => 'valid-uuid',
-                'status' => TransactionStatus::REFUND
+                'status' => TransactionStatus::REFUND_SUCCESS
             ]);
 
 
         $paymentService = new TPayService();
         $refundBody = [
-            'payment_method' => 'TPAY',
             'transactionUuid' => 'valid-uuid'
         ];
         $result = $paymentService->refund($refundBody);
         $this->assertNull($result);
         $transaction = Transaction::where('transaction_uuid', $refundBody['transactionUuid'])->first();
         $this->assertNotNull($transaction);
-        $this->assertEquals(TransactionStatus::REFUND, $transaction->status);
+        $this->assertEquals(TransactionStatus::REFUND_SUCCESS, $transaction->status);
     }
 
     public function test_get_token_success(): void

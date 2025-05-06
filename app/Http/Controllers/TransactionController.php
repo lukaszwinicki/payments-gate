@@ -100,8 +100,8 @@ class TransactionController extends Controller
         
         $paymentSevice = PaymentMethodFactory::getInstanceByPaymentMethod(PaymentMethod::tryFrom($request->query('payment-method')));
         $confirmTransactionDto = $paymentSevice->confirm($webHookBody, $headers);
-
-        if ($confirmTransactionDto->status) {
+        
+        if ($confirmTransactionDto) {
             $transaction = Transaction::where('transaction_uuid', $confirmTransactionDto->remoteCode)->first();
 
             if ($transaction) {
@@ -110,7 +110,7 @@ class TransactionController extends Controller
                 ]);
                 ProcessWebhookJob::dispatch($transaction);
             }
-
+         
             return response($confirmTransactionDto->responseBody, 200);
         } else {
             return response()->json(['error' => 'Invalid webhook payload or signature.'], 500);
@@ -163,7 +163,7 @@ class TransactionController extends Controller
 
         $paymentService = PaymentMethodFactory::getInstanceByPaymentMethod($transaction->payment_method);
         $refundPaymentDto = $paymentService->refund($refundBody);
-
+       
         if ($transaction && $refundPaymentDto !== null && $refundPaymentDto->status === TransactionStatus::REFUND_PENDING) {
             $transaction->status = TransactionStatus::REFUND_PENDING;
             $transaction->save();

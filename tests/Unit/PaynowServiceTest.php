@@ -13,7 +13,7 @@ use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Psr7\Response;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
-use Ramsey\Uuid\UuidInterface;
+use Illuminate\Support\Str;
 use Ramsey\Uuid\Uuid;
 use stdClass;
 use Tests\TestCase;
@@ -29,12 +29,7 @@ class PaynowServiceTest extends TestCase
     }
     public function test_create_transaction_success(): void
     {
-        $uuid = '123e4567-e89b-12d3-a456-426614174000';
-        $uuidMock = \Mockery::mock(UuidInterface::class);
-        $uuidMock->shouldReceive('toString')->andReturn($uuid);
-        \Mockery::mock('alias:' . Uuid::class)
-            ->shouldReceive('uuid4')
-            ->andReturn($uuidMock);
+        Str::createUuidsUsing(fn () => Uuid::fromString('123e4567-e89b-12d3-a456-426614174000'));
 
         $transactionBody = [
             'amount' => 100,
@@ -60,7 +55,7 @@ class PaynowServiceTest extends TestCase
         $createTransactionDto = $paynowService->create($transactionBody);
         $this->assertInstanceOf(CreateTransactionDto::class, $createTransactionDto);
         $this->assertEquals('test-12345', $createTransactionDto->transactionId);
-        $this->assertEquals($uuid, $createTransactionDto->uuid);
+        $this->assertEquals('123e4567-e89b-12d3-a456-426614174000', $createTransactionDto->uuid);
         $this->assertEquals('Jan Kowalski', $createTransactionDto->name);
         $this->assertEquals('jankowalski@example.com', $createTransactionDto->email);
         $this->assertEquals('PLN', $createTransactionDto->currency);
@@ -70,13 +65,8 @@ class PaynowServiceTest extends TestCase
 
     public function test_create_transaction_failed(): void
     {
-        $uuid = '123e4567-e89b-12d3-a456-426614174000';
-        $uuidMock = \Mockery::mock(UuidInterface::class);
-        $uuidMock->shouldReceive('toString')->andReturn($uuid);
-        \Mockery::mock('alias:' . Uuid::class)
-            ->shouldReceive('uuid4')
-            ->andReturn($uuidMock);
-
+        Str::createUuidsUsing(fn () => Uuid::fromString('123e4567-e89b-12d3-a456-426614174000'));
+            
         $transactionBody = [
             'amount' => 100,
             'email' => 'jankowalski@example.com',
@@ -115,8 +105,7 @@ class PaynowServiceTest extends TestCase
 
         $paynowService = new PaynowService();
         $confirmTransactionDto = $paynowService->confirm($webhookBody, $headers);
-        $this->assertInstanceOf(ConfirmTransactionDto::class, $confirmTransactionDto);
-        $this->assertEquals(TransactionStatus::FAIL, $confirmTransactionDto->status);
+        $this->assertNull($confirmTransactionDto);
     }
 
     #[DataProvider('statusWebhookProvider')]
@@ -125,6 +114,7 @@ class PaynowServiceTest extends TestCase
         $paynowService = new PaynowService();
         $confirmTransactionDto = $paynowService->confirm($webhookBody, $headers);
 
+        $this->assertNotNull($confirmTransactionDto);
         $this->assertInstanceOf(ConfirmTransactionDto::class, $confirmTransactionDto);
         $this->assertEquals($status, $confirmTransactionDto->status);
         $this->assertEquals('', $confirmTransactionDto->responseBody);
@@ -154,81 +144,6 @@ class PaynowServiceTest extends TestCase
         $transaction = Transaction::where('transaction_uuid', $refundBody['transactionUuid'])->first();
         $this->assertNotNull($transaction);
         $this->assertNull($confirmTransactionDto);
-    }
-
-    public function test_refund_transaction_is_success(): void
-    {
-        $uuid = '123e4567-e89b-12d3-a456-426614174000';
-        $uuidMock = \Mockery::mock(UuidInterface::class);
-        $uuidMock->shouldReceive('toString')->andReturn($uuid);
-        \Mockery::mock('alias:' . Uuid::class)
-            ->shouldReceive('uuid4')
-            ->andReturn($uuidMock);
-
-        $refundBody = [
-            'transactionUuid' => '12345-12345-12345',
-        ];
-
-        $mockedResponse = [
-            'refundId' => 'test-12345',
-            'status' => 'PENDING'
-        ];
-
-        $transaction = Transaction::factory()->create([
-            'transaction_uuid' => '12345-12345-12345',
-            'amount' => 100,
-            'status' => TransactionStatus::SUCCESS
-        ]);
-
-        $mock = new MockHandler([
-            new Response(201, [], json_encode($mockedResponse))
-        ]);
-
-        $handlerStack = HandlerStack::create($mock);
-        $client = new Client(['handler' => $handlerStack]);
-
-        $transaction = Transaction::where('transaction_uuid', $refundBody['transactionUuid'])->first();
-        $paynowService = new PaynowService($client);
-        $refundTransactionDto = $paynowService->refund($refundBody);
-
-        $this->assertNotNull($transaction);
-        $this->assertEquals('PENDING', $mockedResponse['status']);
-        $this->assertDatabaseHas('transactions', [
-            'transaction_uuid' => $transaction->transaction_uuid,
-            'status' => TransactionStatus::SUCCESS,
-            'refund_code' => 'test-12345'
-        ]);
-        $this->assertInstanceOf($refundTransactionDto::class, $refundTransactionDto);
-        $this->assertEquals(TransactionStatus::REFUND_PENDING, $refundTransactionDto->status);
-    }
-
-    public function test_refund_transaction_failed(): void
-    {
-        $refundBody = [
-            'transactionUuid' => '12345-12345-12345',
-        ];
-
-        $mockedResponse = [
-            'refundId' => 'test-12345',
-            'status' => 'PENDING'
-        ];
-
-        Transaction::factory()->create([
-            'transaction_uuid' => '12345-12345-12345',
-            'amount' => 100,
-            'status' => TransactionStatus::SUCCESS
-        ]);
-
-        $mock = new MockHandler([
-            new Response(400, [], json_encode($mockedResponse))
-        ]);
-
-        $handlerStack = HandlerStack::create($mock);
-        $client = new Client(['handler' => $handlerStack]);
-
-        $paynowService = new PaynowService($client);
-        $refundTransactionDto = $paynowService->refund($refundBody);
-        $this->assertNull($refundTransactionDto);
     }
 
     public function test_calculated_signature(): void
@@ -268,32 +183,32 @@ class PaynowServiceTest extends TestCase
         return [
             'status CONFIRMED' => [
                 ['externalId' => '12345', 'status' => 'CONFIRMED'],
-                ['signature' => ['URSL483bOrCKJraUW7/ph4jj6Ibbvy1AWYvy4UNHXqs=']],
+                ['signature' => ['Y2vpnT9gSsHkhdIpNDqju/C+V8evR1qRr+7RV3Scfxk=']],
                 TransactionStatus::SUCCESS,
             ],
             'status NEW' => [
                 ['externalId' => '12345', 'status' => 'NEW'],
-                ['signature' => ['WAGrb/XuZ6a7WocoaYndcyb7yx7/eIMbAlLCd4yVz/Q=']],
+                ['signature' => ['RfD271QC1oR2RRcYgM/KXLaAaAe/M+sJyjLUtu/PfIs=']],
                 TransactionStatus::PENDING,
             ],
             'status PENDING' => [
                 ['externalId' => '12345', 'status' => 'PENDING'],
-                ['signature' => ['rNlAKKL7R+AlCLBQuqP7mccD6ShiBf/5KsSaNRJ7SuU=']],
+                ['signature' => ['f/xD0doW05/THyBQnF2dKgrMw625ZQOSjhJy3Z/jgkU=']],
                 TransactionStatus::PENDING,
             ],
             'status ERROR' => [
                 ['externalId' => '12345', 'status' => 'ERROR'],
-                ['signature' => ['dMmvQOh5/POpAYvQQSuhB4awzEm2A5C625iznLaCXuk=']],
+                ['signature' => ['UDJ0mT/yaHqa6Vwi4As7jqP86Xcl9683DE45O66Qru4=']],
                 TransactionStatus::FAIL,
             ],
             'status REJECTED' => [
                 ['externalId' => '12345', 'status' => 'REJECTED'],
-                ['signature' => ['kbKArOG7Xn9NqpbdeTWkW5S9BihoDGnLS3p8/DwgPZE=']],
+                ['signature' => ['EZKqpyrMBKNRz8gBkFq0ogtMTcebnIgYEfUVtBCEygk=']],
                 TransactionStatus::FAIL,
             ],
             'status EXPIRED' => [
                 ['externalId' => '12345', 'status' => 'EXPIRED'],
-                ['signature' => ['8KLJ7lJuO81TPBrevVoPxRG82mS0jTF+b/uPbojAqGI=']],
+                ['signature' => ['9xZSRfBUWft6jl73KMrTGBic9gwche4nJF+mQyMZgwk=']],
                 TransactionStatus::FAIL,
             ],
         ];

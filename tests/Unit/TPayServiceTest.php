@@ -15,7 +15,9 @@ use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Psr7\Response;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 use Mockery;
+use Ramsey\Uuid\Uuid;
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -30,6 +32,8 @@ class TPayServiceTest extends TestCase
 
     public function test_create_transaction_success(): void
     {
+        Str::createUuidsUsing(fn () => Uuid::fromString('123e4567-e89b-12d3-a456-426614174000'));
+
         $transactionBody = [
             'amount' => 100,
             'email' => 'jankowalski@example.com',
@@ -69,7 +73,7 @@ class TPayServiceTest extends TestCase
         $createTransactionDto = $paymentService->create($transactionBody);
         $this->assertInstanceOf(CreateTransactionDto::class, $createTransactionDto);
         $this->assertEquals('12345', $createTransactionDto->transactionId);
-        $this->assertEquals('uuid-12345', $createTransactionDto->uuid);
+        $this->assertEquals('123e4567-e89b-12d3-a456-426614174000', $createTransactionDto->uuid);
         $this->assertEquals('Jan Kowalski', $createTransactionDto->name);
         $this->assertEquals('jankowalski@example.com', $createTransactionDto->email);
         $this->assertEquals(100, $createTransactionDto->amount);
@@ -123,8 +127,7 @@ class TPayServiceTest extends TestCase
 
         $paymentService = new TPayService();
         $result = $paymentService->confirm($webhookBody, $headers);
-        $this->assertInstanceOf(ConfirmTransactionDto::class, $result);
-        $this->assertEquals(TransactionStatus::FAIL, $result->status);
+        $this->assertNull($result);
     }
 
     public function test_confirm_invalid_webhookBody(): void
@@ -142,8 +145,7 @@ class TPayServiceTest extends TestCase
             ->andReturn(false);
         $paymentService = new TPayService();
         $result = $paymentService->confirm($webhookBody, $headers);
-        $this->assertInstanceOf(ConfirmTransactionDto::class, $result);
-        $this->assertEquals(TransactionStatus::FAIL, $result->status);
+        $this->assertNull($result);
     }
 
     public function test_confirm_tr_status_is_true(): void

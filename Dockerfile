@@ -32,16 +32,10 @@ RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Copy the existing application directory contents to the working directory
-#COPY . /var/www
-
 # Copy the existing application directory permissions to the working directory
 COPY --chown=www-data:www-data . /var/www
 
-# Change current user to www
-USER www-data
-
-COPY ./docker-compose/nginx/default.conf /etc/nginx/conf.d/default.conf
+# Set appropriate permissions to start.sh before switching user
 COPY ./docker-compose/start.sh /start.sh
 RUN chmod +x /start.sh
 
@@ -50,4 +44,9 @@ RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
 
 # Expose port 80 for HTTP
 EXPOSE 80
+
+# Change current user to www
+USER www-data
+
+# Run the start script
 CMD ["/start.sh"]

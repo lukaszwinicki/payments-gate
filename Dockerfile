@@ -38,7 +38,7 @@ COPY --chown=www-data:www-data . /var/www
 RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache || true
 
 # Expose FPM port
-EXPOSE 9000
+EXPOSE 80
 
 # Change current user to www
 #USER www-data

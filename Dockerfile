@@ -41,9 +41,13 @@ COPY --chown=www-data:www-data . /var/www
 # Change current user to www
 USER www-data
 
+COPY ./docker-compose/nginx/default.conf /etc/nginx/conf.d/default.conf
+COPY ./docker-compose/start.sh /start.sh
+RUN chmod +x /start.sh
+
 # Changing the owner of folders that require writing
 RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
 
-# Expose port 9000 and start php-fpm server
-EXPOSE 9000
-CMD ["php-fpm"]
+# Expose port 80 for HTTP
+EXPOSE 80
+CMD ["/start.sh"]

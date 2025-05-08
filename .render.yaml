@@ -7,10 +7,10 @@ services:
     dockerContext: .
     dockerfilePath: Dockerfile
     startCommand: >
+      composer install --no-interaction --prefer-dist --optimize-autoloader &&
       php artisan migrate --force &&
       php artisan config:cache &&
-      php artisan route:cache &&
-      php artisan serve --host=0.0.0.0 --port=80
+      php artisan route:cache
 
   - type: worker
     name: laravel-queue
@@ -18,7 +18,9 @@ services:
     plan: free
     dockerContext: .
     dockerfilePath: Dockerfile
-    startCommand: php artisan queue:work --sleep=3 --tries=3
+    startCommand: > 
+      composer install --no-interaction --prefer-dist --optimize-autoloader &&
+      php artisan queue:work --sleep=3 --tries=3
 
   - type: cron
     name: laravel-scheduler
@@ -26,4 +28,6 @@ services:
     schedule: "* * * * *"
     dockerContext: .
     dockerfilePath: Dockerfile
-    startCommand: php artisan schedule:run
+    startCommand: > 
+      composer install --no-interaction --prefer-dist --optimize-autoloader &&
+      php artisan schedule:run

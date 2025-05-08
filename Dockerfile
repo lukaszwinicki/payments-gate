@@ -20,6 +20,7 @@ RUN apt-get update && apt-get install -y \
     libzip-dev \
     libpq-dev \
     libonig-dev \
+    nginx \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) gd
 
@@ -36,6 +37,7 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 COPY --chown=www-data:www-data . /var/www
 
 # Set appropriate permissions to start.sh before switching user
+COPY ./docker-compose/nginx/default.conf /etc/nginx/conf.d/default.conf
 COPY ./docker-compose/start.sh /start.sh
 RUN chmod +x /start.sh
 

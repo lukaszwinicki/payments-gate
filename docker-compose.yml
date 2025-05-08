@@ -35,10 +35,10 @@ services:
     container_name: mysql
     restart: unless-stopped
     environment:
-      MYSQL_DATABASE: payments-gate
-      MYSQL_ROOT_PASSWORD: test
-      MYSQL_PASSWORD: root
-      MYSQL_USER: laravel
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_USER: ${MYSQL_USER}
     ports:
       - "3306:3306"
     volumes:

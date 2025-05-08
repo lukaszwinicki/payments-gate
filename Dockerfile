@@ -33,13 +33,16 @@ RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 # Copy the existing application directory contents to the working directory
-COPY . /var/www
+#COPY . /var/www
 
 # Copy the existing application directory permissions to the working directory
-#COPY --chown=www-data:www-data . /var/www
+COPY --chown=www-data:www-data . /var/www
 
 # Change current user to www
-#USER www-data
+USER www-data
+
+# Changing the owner of folders that require writing
+RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
 
 # Expose port 9000 and start php-fpm server
 EXPOSE 9000

@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: laravel-app
+    env: docker
+    plan: free
+    region: oregon
+    dockerContext: .
+    dockerfilePath: Dockerfile
+    startCommand: >
+      php artisan migrate --force &&
+      php artisan config:cache &&
+      php artisan route:cache &&
+      php artisan serve --host=0.0.0.0 --port=80
+
+  - type: worker
+    name: laravel-queue
+    env: docker
+    plan: free
+    dockerContext: .
+    dockerfilePath: Dockerfile
+    startCommand: php artisan queue:work --sleep=3 --tries=3
+
+  - type: cron
+    name: laravel-scheduler
+    env: docker
+    schedule: "* * * * *"
+    dockerContext: .
+    dockerfilePath: Dockerfile
+    startCommand: php artisan schedule:run

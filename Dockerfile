@@ -48,7 +48,7 @@ RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
 EXPOSE 80
 
 # Change current user to www
-USER www-data
+#USER www-data
 
 # Run the start script
 CMD ["/start.sh"]

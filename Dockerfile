@@ -1,9 +1,9 @@
-FROM php:8.2-fpm
+FROM php:8.2-cli
 
-# Set working directory
+# Ustaw katalog roboczy
 WORKDIR /var/www
 
-# Install dependencies
+# Instaluj zależności systemowe
 RUN apt-get update && apt-get install -y \
     build-essential \
     libpng-dev \
@@ -22,26 +22,29 @@ RUN apt-get update && apt-get install -y \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) gd
 
-# PHP extensions
+# Instaluj rozszerzenia PHP
 RUN docker-php-ext-install pdo pdo_mysql pdo_pgsql mbstring zip exif pcntl
 
-# Clean up
+# Wyczyść cache APT
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Composer
+# Dodaj Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Copy app source
+# Skopiuj pliki aplikacji
 COPY --chown=www-data:www-data . /var/www
 
-# Permissions for Laravel, Symfony, etc.
+# Ustaw uprawnienia (ważne dla Laravel)
 RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache || true
 
-# Expose FPM port
-EXPOSE 80
+# Zainstaluj zależności PHP
+RUN composer install --no-dev --optimize-autoloader
 
-# Change current user to www
-#USER www-data
+# Wygeneruj klucz aplikacji (jeśli nie istnieje)
+RUN php artisan config:clear
 
-# Start PHP-FPM
-CMD ["php-fpm"]
+# Ustaw port, na którym Laravel ma nasłuchiwać
+ENV PORT=80
+
+# Laravel uruchamiany przez wbudowany serwer PHP
+CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=80"]

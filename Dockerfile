@@ -1,9 +1,9 @@
-FROM php:8.2-cli
+FROM php:8.2-apache
 
-# Ustaw katalog roboczy
+# Ustaw roboczy katalog
 WORKDIR /var/www
 
-# Instaluj zależności systemowe
+# Instalacja zależności systemowych i PHP
 RUN apt-get update && apt-get install -y \
     build-essential \
     libpng-dev \
@@ -22,29 +22,27 @@ RUN apt-get update && apt-get install -y \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) gd
 
-# Instaluj rozszerzenia PHP
+# PHP extensions
 RUN docker-php-ext-install pdo pdo_mysql pdo_pgsql mbstring zip exif pcntl
 
-# Wyczyść cache APT
-RUN apt-get clean && rm -rf /var/lib/apt/lists/*
-
-# Dodaj Composer
+# Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Skopiuj pliki aplikacji
-COPY --chown=www-data:www-data . /var/www
+# Skopiuj aplikację Laravel
+COPY . /var/www
 
-# Ustaw uprawnienia (ważne dla Laravel)
+# Skonfiguruj Apache, by używał /public jako DocumentRoot
+RUN sed -i 's|/var/www/html|/var/www/public|g' /etc/apache2/sites-available/000-default.conf \
+    && sed -i 's|/var/www/html|/var/www/public|g' /etc/apache2/apache2.conf
+
+# Włącz mod_rewrite dla Laravel (wymagane dla route'ów)
+RUN a2enmod rewrite
+
+# Ustaw uprawnienia dla storage i bootstrap/cache
 RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache || true
 
-# Zainstaluj zależności PHP
-RUN composer install --no-dev --optimize-autoloader
+# Ustawienia portów
+EXPOSE 80
 
-# Wygeneruj klucz aplikacji (jeśli nie istnieje)
-RUN php artisan config:clear
-
-# Ustaw port, na którym Laravel ma nasłuchiwać
-ENV PORT=80
-
-# Laravel uruchamiany przez wbudowany serwer PHP
-CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=80"]
+# Domyślna komenda - Apache w trybie foreground
+CMD ["apache2-foreground"]

@@ -45,20 +45,27 @@ Schedule::call(function () {
 
 Schedule::call(function () {
 
-    $refundTransactions = Transaction::where('status', TransactionStatus::REFUND_PENDING)->get();
+    $refundTransactions = Transaction::where('status', TransactionStatus::REFUND_PENDING)
+        ->where('payment_method', 'PAYNOW')
+        ->get();
 
     foreach ($refundTransactions as $refundTransaction) {
 
         $status = PaynowRefundStatusService::getRefundPaymentStatus($refundTransaction->refund_code);
 
-        if ($status === 'FAILED') {
+        if ($status === 'SUCCESSFUL') {
             $refundTransaction->update([
-                'status' => TransactionStatus::REFUND_FAIL
+                'status' => TransactionStatus::REFUND_SUCCESS
+            ]);
+            ProcessWebhookJob::dispatch($refundTransaction);
+        } elseif ($status === 'PENDING' || $status === 'NEW') {
+            $refundTransaction->update([
+                'status' => TransactionStatus::REFUND_PENDING
             ]);
             ProcessWebhookJob::dispatch($refundTransaction);
         } else {
             $refundTransaction->update([
-                'status' => TransactionStatus::REFUND_SUCCESS
+                'status' => TransactionStatus::REFUND_FAIL
             ]);
             ProcessWebhookJob::dispatch($refundTransaction);
         }

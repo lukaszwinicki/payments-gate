@@ -96,15 +96,9 @@ class TPayService implements PaymentMethodInterface
     {
         $transaction = Transaction::where('transaction_uuid', $refundBody['transactionUuid'])->first();
 
-        if (
-            $transaction &&
-            in_array($transaction->status, [
-                TransactionStatus::REFUND_SUCCESS,
-                TransactionStatus::REFUND_PENDING,
-                TransactionStatus::REFUND_FAIL,
-            ])
-        )
+        if ($transaction->status !== TransactionStatus::SUCCESS && $transaction->status !== TransactionStatus::REFUND_FAIL) {
             return null;
+        }
 
         try {
             $responseRefund = $this->client->request('POST', config('app.tpay.openApiUrl') . '/transactions/' . $transaction?->transactions_id . '/refunds', [

@@ -9,7 +9,7 @@ use stdClass;
 
 class PaynowRefundStatusService
 {
-    public static function getRefundPaymentStatus(string $refund_code): string
+    public static function getRefundPaymentStatus(string $refund_code): ?string
     {
         $uuid = (string) Str::uuid();
         $client = new Client();
@@ -42,7 +42,7 @@ class PaynowRefundStatusService
         }
 
         if ($getStatus->getStatusCode() !== 200) {
-            return 'Error';
+            return null;
         }
 
         $responseStatus = json_decode($getStatus->getBody()->getContents(), true);

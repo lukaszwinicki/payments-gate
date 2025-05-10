@@ -16,7 +16,7 @@ class ApiKeyMiddleware
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $apiKeyHeader = $request->header('X-API-Key');
+        $apiKeyHeader = $request->header('X-API-KEY');
         $apiKeyMerchant = Merchant::where('api_key', $apiKeyHeader)->first();
 
         if (!$apiKeyHeader || $apiKeyMerchant === null) {

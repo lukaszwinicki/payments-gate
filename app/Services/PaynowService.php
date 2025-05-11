@@ -17,6 +17,7 @@ class PaynowService implements PaymentMethodInterface
     public function __construct(public Client $client = new Client())
     {
     }
+  
     public function create(array $transactionBody): ?CreateTransactionDto
     {
         $uuid = (string) Str::uuid();
@@ -70,10 +71,10 @@ class PaynowService implements PaymentMethodInterface
         if ($signature !== $calculatedSignatureFromWebhook) {
             return null;
         }
-
+        
         $remoteCode = $webHookBody['externalId'];
         $status = null;
-
+        
         if ($webHookBody['status'] == 'CONFIRMED') {
             $status = TransactionStatus::SUCCESS;
         }
@@ -92,19 +93,12 @@ class PaynowService implements PaymentMethodInterface
     public function refund(array $refundBody): ?RefundPaymentDto
     {
         $transaction = Transaction::where('transaction_uuid', $refundBody['transactionUuid'])->first();
-
-        if (
-            $transaction &&
-            in_array($transaction->status, [
-                TransactionStatus::REFUND_SUCCESS,
-                TransactionStatus::REFUND_PENDING,
-                TransactionStatus::REFUND_FAIL,
-            ])
-        )
+      
+        if ($transaction->status !== TransactionStatus::SUCCESS && $transaction->status !== TransactionStatus::REFUND_FAIL) {
             return null;
+        }
 
         try {
-
             $uuid = (string) Str::uuid();
             $paynowRequestBody = [
                 'amount' => $transaction->amount * 100,

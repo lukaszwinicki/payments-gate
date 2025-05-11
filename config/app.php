@@ -138,5 +138,12 @@ return [
         'sandboxApiUrl' => env('PAYNOW_SANDBOX_API_URL'),
         'apiKey' => env('PAYNOW_API_KEY'),
         'signatureKey' => env('PAYNOW_SIGNATURE_KEY')
+    ],
+
+    'noda' => [
+        'sandboxApiUrl' => env('NODA_SANDBOX_API_URL'),
+        'apiKey' => env('NODA_API_KEY'),
+        'signetureKey' => env('NODA_SIGNATURE_KEY'),
+        'notificationUrl' => env('NODA_WEBHOOK_URL')
     ]
 ];

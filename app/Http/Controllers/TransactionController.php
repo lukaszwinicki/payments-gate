@@ -97,11 +97,11 @@ class TransactionController extends Controller
     {
         $webHookBody = $request->getContentTypeFormat() == 'json' ? $request->json()->all() : $request->request->all();
         $headers = $request->header();
-
+        
         $paymentSevice = PaymentMethodFactory::getInstanceByPaymentMethod(PaymentMethod::tryFrom($request->query('payment-method')));
         $confirmTransactionDto = $paymentSevice->confirm($webHookBody, $headers);
 
-        if ($confirmTransactionDto->status !== null) {
+        if ($confirmTransactionDto?->status !== null) {
             $transaction = Transaction::where('transaction_uuid', $confirmTransactionDto->remoteCode);
 
             if ($transaction) {
@@ -163,7 +163,7 @@ class TransactionController extends Controller
 
         $paymentService = PaymentMethodFactory::getInstanceByPaymentMethod($transaction->payment_method);
         $refundPaymentDto = $paymentService->refund($refundBody);
-
+       
         if ($transaction && $refundPaymentDto !== null && $refundPaymentDto->status === TransactionStatus::REFUND_PENDING) {
             $transaction->status = TransactionStatus::REFUND_PENDING;
             $transaction->save();

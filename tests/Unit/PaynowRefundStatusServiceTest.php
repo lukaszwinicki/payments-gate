@@ -41,6 +41,6 @@ class PaynowRefundStatusServiceTest extends TestCase
         $handlerStack = HandlerStack::create($mock);
         $client = new Client(['handler' => $handlerStack]);
         $status = PaynowRefundStatusService::getRefundPaymentStatus($refundCode, $client, $uuid);
-        $this->assertEquals('Error',$status);
+        $this->assertNull($status);
     }
 }

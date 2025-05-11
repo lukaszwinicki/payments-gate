@@ -97,18 +97,18 @@ class TransactionController extends Controller
     {
         $webHookBody = $request->getContentTypeFormat() == 'json' ? $request->json()->all() : $request->request->all();
         $headers = $request->header();
-        
+
         $paymentSevice = PaymentMethodFactory::getInstanceByPaymentMethod(PaymentMethod::tryFrom($request->query('payment-method')));
         $confirmTransactionDto = $paymentSevice->confirm($webHookBody, $headers);
 
-        if ($confirmTransactionDto->status) {
-            $transaction = Transaction::where('transaction_uuid', $confirmTransactionDto->remoteCode)->first();
+        if ($confirmTransactionDto->status !== null) {
+            $transaction = Transaction::where('transaction_uuid', $confirmTransactionDto->remoteCode);
 
             if ($transaction) {
                 $transaction->update([
                     'status' => $confirmTransactionDto->status
                 ]);
-                ProcessWebhookJob::dispatch($transaction);
+                ProcessWebhookJob::dispatch($transaction->first());
             }
 
             return response($confirmTransactionDto->responseBody, 200);

@@ -6,6 +6,7 @@ use App\Enums\TransactionStatus;
 use App\Jobs\ProcessWebhookJob;
 use App\Models\Merchant;
 use App\Models\Transaction;
+use App\Services\NodaService;
 use App\Services\PaynowService;
 use App\Services\TPayService;
 use GuzzleHttp\Client;
@@ -70,7 +71,7 @@ class TransactionControllerTest extends TestCase
     #[DataProvider('paymentGatewaysTransactionLifecycleProvider')]
     public function test_create_transaction_is_created_and_confirmed(string $serviceClass, array $transactionBody, array $mockResponse, array $headers, array $webhookBody): void
     {
-        Str::createUuidsUsing(fn () => Uuid::fromString('8fe22800-d5ed-40e3-8dda-5289bc29e314'));
+        Str::createUuidsUsing(fn() => Uuid::fromString('8fe22800-d5ed-40e3-8dda-5289bc29e314'));
         $mock = new MockHandler($mockResponse);
         $handlerStack = HandlerStack::create($mock);
         $client = new Client(['handler' => $handlerStack]);
@@ -96,7 +97,7 @@ class TransactionControllerTest extends TestCase
        
         $response = $this->withHeaders($headers)
             ->post('/api/confirm-transaction?payment-method=' . $transactionBody['paymentMethod'], $webhookBody);
-           
+
         $response->assertStatus(200);
 
         $this->assertDatabaseHas('transactions', [
@@ -254,41 +255,6 @@ class TransactionControllerTest extends TestCase
         $this->assertEquals(TransactionStatus::REFUND_PENDING, $transaction->status);
     }
 
-    public static function refundTransactionIsSuccessProvider(): array
-    {
-        return [
-            'TPAY' => [
-                '470ea80c-3929-4ee7-964e-c9eb4ac422df',
-                [
-                    'transaction_uuid' => '470ea80c-3929-4ee7-964e-c9eb4ac422df',
-                    'payment_method' => 'TPAY'
-                ],
-                [
-                    new Response(200, [], json_encode(['access_token' => 'mock-token'])),
-                    new Response(200, [], json_encode(['result' => 'success', 'status' => 'refund'])),
-                ],
-                TPayService::class,
-                [
-                    'transactionUuid' => '470ea80c-3929-4ee7-964e-c9eb4ac422df',
-                ]
-            ],
-            'PAYNOW' => [
-                '470ea80c-3929-4ee7-964e-c9eb4ac422df',
-                [
-                    'transaction_uuid' => '470ea80c-3929-4ee7-964e-c9eb4ac422df',
-                    'payment_method' => 'PAYNOW'
-                ],
-                [
-                    new Response(201, [], json_encode(['refundId' => '12345', 'status' => 'PENDING'])),
-                ],
-                PaynowService::class,
-                [
-                    'transactionUuid' => '470ea80c-3929-4ee7-964e-c9eb4ac422df',
-                ]
-            ]
-        ];
-    }
-
     public static function createTransactionBodyProviderWithInvalidData(): array
     {
         return [
@@ -303,6 +269,13 @@ class TransactionControllerTest extends TestCase
                 [
                     'email' => 'jankowalski@gmail.com',
                     'paymentMethod' => 'PAYNOW',
+                    'notificationUrl' => 'https://notification.url'
+                ]
+            ],
+            'NODA' => [
+                [
+                    'email' => 'jankowalski@gmail.com',
+                    'paymentMethod' => 'NODA',
                     'notificationUrl' => 'https://notification.url'
                 ]
             ]
@@ -336,6 +309,20 @@ class TransactionControllerTest extends TestCase
                     'notificationUrl' => 'https://notification.url'
                 ],
                 PaynowService::class,
+                [
+                    new Response(500, [], '')
+                ]
+            ],
+            'NODA' => [
+                [
+                    'amount' => 100,
+                    'email' => 'jankowalski@gmail.com',
+                    'name' => 'Jan Kowalski',
+                    'currency' => 'USD',
+                    'paymentMethod' => 'NODA',
+                    'notificationUrl' => 'https://notification.url'
+                ],
+                NodaService::class,
                 [
                     new Response(500, [], '')
                 ]
@@ -411,6 +398,32 @@ class TransactionControllerTest extends TestCase
                     'externalId' => '8fe22800-d5ed-40e3-8dda-5289bc29e314',
                     'status' => 'CONFIRMED'
                 ],
+            ],
+            'NODA' => [
+                NodaService::class,
+                [
+                    'amount' => 10,
+                    'email' => 'jankowalski@gmail.com',
+                    'name' => 'Jan Kowalski',
+                    'currency' => 'USD',
+                    'paymentMethod' => 'NODA',
+                    'notificationUrl' => 'https://notification.url',
+                ],
+                [
+                    new Response(200, [], json_encode([
+                        'id' => 'test-12345',
+                        'url' => 'https://example.com/link'
+                    ])),
+                ],
+                [
+                    // Signature is included in $webHookBody; no signature is sent via headers.
+                ],
+                [
+                    'PaymentId' => '717b62f9-d92c-4faa-99a5-b967a2eb14fc',
+                    'Status' => 'Done',
+                    'Signature' => 'a72d1711756b438202110ba90645deb917397b0231a621e8a234fb28b9ea0d22',
+                    'MerchantPaymentId' => '8fe22800-d5ed-40e3-8dda-5289bc29e314'
+                ],
             ]
         ];
     }
@@ -434,6 +447,17 @@ class TransactionControllerTest extends TestCase
                     'data' => 'invalid'
                 ],
                 'PAYNOW'
+            ],
+            'NODA' => [
+                [
+                    // Signature is included in $webHookBody; no signature is sent via headers.
+                ],
+                [
+                    'PaymentId' => '717b62f9-d92c-4faa-99a5-b967a2eb14fc',
+                    'Status' => 'Done',
+                    'Signature' => 'invalid-signature',
+                ],
+                'NODA'
             ]
         ];
     }
@@ -479,6 +503,41 @@ class TransactionControllerTest extends TestCase
                     new Response(400, [], ''),
                 ],
                 PaynowService::class
+            ]
+        ];
+    }
+
+    public static function refundTransactionIsSuccessProvider(): array
+    {
+        return [
+            'TPAY' => [
+                '470ea80c-3929-4ee7-964e-c9eb4ac422df',
+                [
+                    'transaction_uuid' => '470ea80c-3929-4ee7-964e-c9eb4ac422df',
+                    'payment_method' => 'TPAY'
+                ],
+                [
+                    new Response(200, [], json_encode(['access_token' => 'mock-token'])),
+                    new Response(200, [], json_encode(['result' => 'success', 'status' => 'refund'])),
+                ],
+                TPayService::class,
+                [
+                    'transactionUuid' => '470ea80c-3929-4ee7-964e-c9eb4ac422df',
+                ]
+            ],
+            'PAYNOW' => [
+                '470ea80c-3929-4ee7-964e-c9eb4ac422df',
+                [
+                    'transaction_uuid' => '470ea80c-3929-4ee7-964e-c9eb4ac422df',
+                    'payment_method' => 'PAYNOW'
+                ],
+                [
+                    new Response(201, [], json_encode(['refundId' => '12345', 'status' => 'PENDING'])),
+                ],
+                PaynowService::class,
+                [
+                    'transactionUuid' => '470ea80c-3929-4ee7-964e-c9eb4ac422df',
+                ]
             ]
         ];
     }

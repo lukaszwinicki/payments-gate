@@ -121,8 +121,7 @@ class PaynowServiceTest extends TestCase
         $this->assertEquals('12345', $confirmTransactionDto->remoteCode);
     }
 
-    #[DataProvider('refundStatusProvider')]
-    public function test_refund_transaction_is_exist_and_status_is_refund_success_or_refund_pending_or_refund__fail(TransactionStatus $status): void
+    public function test_refund_transaction_is_exist_and_status_is_success_or_refund__fail(): void
     {
         $refundBody = [
             'transactionUuid' => 'valid-uuid'
@@ -136,7 +135,8 @@ class PaynowServiceTest extends TestCase
             ->andReturn((object) [
                 'transactions_id' => '12345',
                 'transaction_uuid' => 'valid-uuid',
-                'status' => $status
+                'amount' => 10,
+                'status' => TransactionStatus::SUCCESS
             ]);
 
         $paynowService = new PaynowService();
@@ -211,14 +211,6 @@ class PaynowServiceTest extends TestCase
                 ['signature' => ['9xZSRfBUWft6jl73KMrTGBic9gwche4nJF+mQyMZgwk=']],
                 TransactionStatus::FAIL,
             ],
-        ];
-    }
-    public static function refundStatusProvider(): array
-    {
-        return [
-            [TransactionStatus::REFUND_SUCCESS],
-            [TransactionStatus::REFUND_PENDING],
-            [TransactionStatus::REFUND_FAIL],
         ];
     }
 }

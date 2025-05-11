@@ -9,7 +9,7 @@ use stdClass;
 
 class PaynowRefundStatusService
 {
-    public static function getRefundPaymentStatus(string $refundCode, Client $client = null, $uuid = null): string
+    public static function getRefundPaymentStatus(string $refundCode, Client $client = null, $uuid = null): ?string
     {
         $uuid = $uuid ?? Uuid::uuid4()->toString();
         $client = $client ?? new Client();
@@ -28,6 +28,7 @@ class PaynowRefundStatusService
 
         try {
             $getStatus = $client->request('GET', config('app.paynow.sandboxApiUrl') . '/refunds/' . $refundCode . '/status', [
+
                 'headers' => [
                     'Content-Type' => 'application/json',
                     'Accept' => 'application/json',
@@ -42,7 +43,7 @@ class PaynowRefundStatusService
         }
 
         if ($getStatus->getStatusCode() !== 200) {
-            return 'Error';
+            return null;
         }
 
         $responseStatus = json_decode($getStatus->getBody()->getContents(), true);

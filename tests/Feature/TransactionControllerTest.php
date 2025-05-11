@@ -94,7 +94,7 @@ class TransactionControllerTest extends TestCase
         $this->assertNotNull($transaction);
 
         Queue::fake();
-
+       
         $response = $this->withHeaders($headers)
             ->post('/api/confirm-transaction?payment-method=' . $transactionBody['paymentMethod'], $webhookBody);
 

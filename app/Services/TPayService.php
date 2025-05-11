@@ -95,7 +95,7 @@ class TPayService implements PaymentMethodInterface
     public function refund(array $refundBody): ?RefundPaymentDto
     {
         $transaction = Transaction::where('transaction_uuid', $refundBody['transactionUuid'])->first();
-
+      
         if ($transaction->status !== TransactionStatus::SUCCESS && $transaction->status !== TransactionStatus::REFUND_FAIL) {
             return null;
         }

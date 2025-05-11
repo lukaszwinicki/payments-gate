@@ -23,6 +23,7 @@ class TransactionFactory extends Factory
             'transaction_uuid' => $this->faker->uuid(),
             'transactions_id' => $this->faker->unique()->numberBetween(1000, 9999),
             'merchant_id' => Merchant::factory(),
+            'refund_code' => null,
             'amount' => $this->faker->randomFloat(2, 1, 1000),
             'name' => $this->faker->name(),
             'email' => $this->faker->unique()->safeEmail(),

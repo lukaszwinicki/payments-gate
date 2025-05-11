@@ -9,7 +9,7 @@ use App\Enums\TransactionStatus;
 use App\Models\Transaction;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
-use Illuminate\Support\Str;
+use Ramsey\Uuid\Uuid;
 use stdClass;
 
 class PaynowService implements PaymentMethodInterface
@@ -17,9 +17,10 @@ class PaynowService implements PaymentMethodInterface
     public function __construct(public Client $client = new Client())
     {
     }
+  
     public function create(array $transactionBody): ?CreateTransactionDto
     {
-        $uuid = (string) Str::uuid();
+        $uuid = Uuid::uuid4()->toString();
         $paynowRequestBody = [
             'amount' => $transactionBody['amount'] * 100,
             'buyer' => [
@@ -70,10 +71,10 @@ class PaynowService implements PaymentMethodInterface
         if ($signature !== $calculatedSignatureFromWebhook) {
             return new ConfirmTransactionDto(TransactionStatus::FAIL);
         }
-
+        
         $remoteCode = $webHookBody['externalId'];
         $status = null;
-
+        
         if ($webHookBody['status'] == 'CONFIRMED') {
             $status = TransactionStatus::SUCCESS;
         }
@@ -92,14 +93,13 @@ class PaynowService implements PaymentMethodInterface
     public function refund(array $refundBody): ?RefundPaymentDto
     {
         $transaction = Transaction::where('transaction_uuid', $refundBody['transactionUuid'])->first();
-
+      
         if ($transaction->status !== TransactionStatus::SUCCESS && $transaction->status !== TransactionStatus::REFUND_FAIL) {
             return null;
         }
 
         try {
-
-            $uuid = (string) Str::uuid();
+            $uuid = Uuid::uuid4()->toString();
             $paynowRequestBody = [
                 'amount' => $transaction->amount * 100,
             ];
@@ -135,7 +135,7 @@ class PaynowService implements PaymentMethodInterface
         return null;
     }
 
-    private function calculatedSignature(array $body, string $uuid): string
+    public function calculatedSignature(array $body, string $uuid): string
     {
         $apiKey = config('app.paynow.apiKey');
         $signatureKey = config('app.paynow.signatureKey');

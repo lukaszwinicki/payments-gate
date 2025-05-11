@@ -4,15 +4,15 @@ namespace App\Services;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
-use Illuminate\Support\Str;
+use Ramsey\Uuid\Uuid;
 use stdClass;
 
 class PaynowRefundStatusService
 {
-    public static function getRefundPaymentStatus(string $refund_code): ?string
+    public static function getRefundPaymentStatus(string $refundCode, Client $client = null, $uuid = null): ?string
     {
-        $uuid = (string) Str::uuid();
-        $client = new Client();
+        $uuid = $uuid ?? Uuid::uuid4()->toString();
+        $client = $client ?? new Client();
         $signatureKey = config('app.paynow.signatureKey');
 
         $signatureBody = [
@@ -27,7 +27,8 @@ class PaynowRefundStatusService
         $signature = base64_encode(hash_hmac('sha256', json_encode($signatureBody), $signatureKey, true));
 
         try {
-            $getStatus = $client->request('GET', config('app.paynow.sandboxApiUrl') . '/refunds/' . $refund_code . '/status', [
+            $getStatus = $client->request('GET', config('app.paynow.sandboxApiUrl') . '/refunds/' . $refundCode . '/status', [
+
                 'headers' => [
                     'Content-Type' => 'application/json',
                     'Accept' => 'application/json',

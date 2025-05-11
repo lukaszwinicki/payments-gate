@@ -23,7 +23,7 @@ class TPayService implements PaymentMethodInterface
 
     public function create(array $transactionBody): ?CreateTransactionDto
     {
-        $uuid = Str::uuid();
+        $uuid = (string) Str::uuid();
         $tpayRequestBody = [
             'amount' => $transactionBody['amount'],
             'description' => $uuid,
@@ -58,7 +58,7 @@ class TPayService implements PaymentMethodInterface
         $tpayResponseBody = json_decode($createTransaction->getBody()->getContents(), true);
         $createTransactionDto = new CreateTransactionDto(
             $tpayResponseBody['transactionId'],
-            $tpayResponseBody['hiddenDescription'],
+            $uuid,
             $tpayResponseBody['payer']['name'],
             $tpayResponseBody['payer']['email'],
             $tpayResponseBody['currency'],
@@ -69,13 +69,13 @@ class TPayService implements PaymentMethodInterface
         return $createTransactionDto;
     }
 
-    public function confirm(array $webHookBody, array $headers): ConfirmTransactionDto
+    public function confirm(array $webHookBody, array $headers): ?ConfirmTransactionDto
     {
         $jws = $headers['x-jws-signature'][0];
         $resultValidate = TPaySignatureValidatorFacade::confirm(http_build_query($webHookBody), $jws);
 
         if (!$resultValidate) {
-            return new ConfirmTransactionDto(TransactionStatus::FAIL);
+            return null;
         }
 
         $remoteCode = $webHookBody['tr_crc'];

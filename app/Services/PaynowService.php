@@ -9,7 +9,7 @@ use App\Enums\TransactionStatus;
 use App\Models\Transaction;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
-use Ramsey\Uuid\Uuid;
+use Illuminate\Support\Str;
 use stdClass;
 
 class PaynowService implements PaymentMethodInterface
@@ -20,7 +20,7 @@ class PaynowService implements PaymentMethodInterface
   
     public function create(array $transactionBody): ?CreateTransactionDto
     {
-        $uuid = Uuid::uuid4()->toString();
+        $uuid = (string) Str::uuid();
         $paynowRequestBody = [
             'amount' => $transactionBody['amount'] * 100,
             'buyer' => [
@@ -63,13 +63,13 @@ class PaynowService implements PaymentMethodInterface
         return $createTransactionDto;
     }
 
-    public function confirm(array $webHookBody, array $headers): ConfirmTransactionDto
+    public function confirm(array $webHookBody, array $headers): ?ConfirmTransactionDto
     {
         $signature = $headers['signature'][0];
         $calculatedSignatureFromWebhook = base64_encode(hash_hmac('sha256', json_encode($webHookBody), config('app.paynow.signatureKey'), true));
 
         if ($signature !== $calculatedSignatureFromWebhook) {
-            return new ConfirmTransactionDto(TransactionStatus::FAIL);
+            return null;
         }
         
         $remoteCode = $webHookBody['externalId'];
@@ -99,7 +99,7 @@ class PaynowService implements PaymentMethodInterface
         }
 
         try {
-            $uuid = Uuid::uuid4()->toString();
+            $uuid = (string) Str::uuid();
             $paynowRequestBody = [
                 'amount' => $transaction->amount * 100,
             ];

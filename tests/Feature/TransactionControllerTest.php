@@ -6,6 +6,7 @@ use App\Enums\TransactionStatus;
 use App\Jobs\ProcessWebhookJob;
 use App\Models\Merchant;
 use App\Models\Transaction;
+use App\Services\PaynowService;
 use App\Services\TPayService;
 use GuzzleHttp\Client;
 use GuzzleHttp\Handler\MockHandler;
@@ -13,7 +14,10 @@ use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Psr7\Response;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Str;
+use Ramsey\Uuid\Uuid;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 class TransactionControllerTest extends TestCase
 {
@@ -25,14 +29,9 @@ class TransactionControllerTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_create_transaction_with_invalid_data(): void
+    #[DataProvider('createTransactionBodyProviderWithInvalidData')]
+    public function test_create_transaction_with_invalid_data(array $transactionBody): void
     {
-        $transactionBody = [
-            'email' => 'jankowalski@gmail.com',
-            'paymentMethod' => 'TPAY',
-            'notificationUrl' => 'https://notification.url'
-        ];
-
         Merchant::factory()->create();
 
         $response = $this->withHeaders([
@@ -47,27 +46,15 @@ class TransactionControllerTest extends TestCase
         ]);
     }
 
-    public function test_create_transaction_failed(): void
+    #[DataProvider('createTransactionFailedProvider')]
+    public function test_create_transaction_failed(array $transactionBody, string $serviceClass, array $mockResponse): void
     {
-        $transactionBody = [
-            'amount' => 100,
-            'email' => 'jankowalski@gmail.com',
-            'name' => 'Jan Kowalski',
-            'paymentMethod' => 'TPAY',
-            'notificationUrl' => 'https://notification.url'
-        ];
-
-
-        $mock = new MockHandler([
-            new Response(200, [], json_encode(['access_token' => 'mock-token'])),
-            new Response(500, [], ''),
-        ]);
-
+        $mock = new MockHandler($mockResponse);
         $handlerStack = HandlerStack::create($mock);
         $client = new Client(['handler' => $handlerStack]);
 
-        $tpayService = new TPayService($client);
-        $this->app->bind(TPayService::class, fn() => $tpayService);
+        $service = new $serviceClass($client);
+        $this->app->bind($serviceClass, fn() => $service);
 
         Merchant::factory()->create();
 
@@ -80,38 +67,16 @@ class TransactionControllerTest extends TestCase
         ]);
     }
 
-    public function test_create_transaction_is_created_and_confirmed(): void
+    #[DataProvider('paymentGatewaysTransactionLifecycleProvider')]
+    public function test_create_transaction_is_created_and_confirmed(string $serviceClass, array $transactionBody, array $mockResponse, array $headers, array $webhookBody): void
     {
-        $transactionBody = [
-            'amount' => 100,
-            'email' => 'jankowalski@gmail.com',
-            'name' => 'Jan Kowalski',
-            'paymentMethod' => 'TPAY',
-            'notificationUrl' => 'https://notification.url'
-        ];
-
-        $mockedResponse = [
-            'transactionId' => '12345',
-            'hiddenDescription' => '8fe22800-d5ed-40e3-8dda-5289bc29e314',
-            'payer' => [
-                'name' => 'Jan Kowalski',
-                'email' => 'jankowalski@gmail.com',
-            ],
-            'amount' => 100,
-            'currency' => 'PLN',
-            'transactionPaymentUrl' => 'https://example.com/link',
-        ];
-
-        $mock = new MockHandler([
-            new Response(200, [], json_encode(['access_token' => 'mock-token'])),
-            new Response(200, [], json_encode($mockedResponse)),
-        ]);
-
+        Str::createUuidsUsing(fn () => Uuid::fromString('8fe22800-d5ed-40e3-8dda-5289bc29e314'));
+        $mock = new MockHandler($mockResponse);
         $handlerStack = HandlerStack::create($mock);
         $client = new Client(['handler' => $handlerStack]);
 
-        $tpayService = new TPayService($client);
-        $this->app->bind(TPayService::class, fn() => $tpayService);
+        $service = new $serviceClass($client);
+        $this->app->bind($serviceClass, fn() => $service);
 
         Merchant::factory()->create();
 
@@ -127,92 +92,60 @@ class TransactionControllerTest extends TestCase
         $transaction = Transaction::where('transaction_uuid', $result['transactionUuid'])->first();
         $this->assertNotNull($transaction);
 
-        $headers = [
-            'x-jws-signature' => ['eyJhbGciOiJSUzI1NiIsIng1dSI6Imh0dHBzOlwvXC9zZWN1cmUuc2FuZGJveC50cGF5LmNvbVwveDUwOVwvbm90aWZpY2F0aW9ucy1qd3MucGVtIn0..HalI3jDvtvVGCn5wSiUUTH4ZSjAbbSEo2nbcI_PfqJIVgnH_vW6RMLEfOxfDQLkpZZoGNwgYg9fqw3h3zBt11qPDXn_m79iNnBe0-stLk4TPBDUEATEULIkpjLolFm727kNtZs2cxyfZm03SwtVOC7WrOQTEXqCZXtrGhONy-Sz_j4duG-haiAOvKLAbCJC4eRQvjxfX0LaUWhqscmJitZrJjb_l7THT-cA5Pq7FA4zbJMgbAHzRE6we41fFeQXal4Je3s5_KwbDzdXwpaYCo2MhOZTBEaUsMdvZHwKfKPYW7WcLhhqG_-tNaa8ZNTHrh8_B0wvKet4ReBPhAAfjwFjRQ2t4hX8Ukx0OYuTBz2LRh9Z-Gy7YQWR7-da67kwdTlKIfhtvUfwtu62PgV5LkVX9bll_27mKwZfwJvESqJoO4AUV-_Xn7g4sLNG_CkPc7QDk4TIXnKZuj19uvwEW4UVZlXmL4R2FaGJqmEPspBljPhte9Ez-avc1QmfV0WS4AF94GRMBy5XO-1ubiUZq9x6xlUIlwZ3Du7lz71uNpLHoZu2aBTm8ZnsB9zrVkfN1ZVuxEQ7Kx723bJdTH9KerT0fjTa7j9fKMBmwL64XqZmLMRAJmeo_iIfXVgYtdDunHOSYzat16QXbqDLykCxIHUcQ0UnJAai8LlAbGq66q2g'],
-        ];
-
-        $webhookBody = [
-            "id" => "401406",
-            "tr_id" => "TR-4H6K-2KTYDX",
-            "tr_date" => "2025-04-14 16:48:43",
-            "tr_crc" => "8fe22800-d5ed-40e3-8dda-5289bc29e314",
-            "tr_amount" => "10.00",
-            "tr_paid" => "10.00",
-            "tr_desc" => "8fe22800-d5ed-40e3-8dda-5289bc29e314",
-            "tr_status" => "TRUE",
-            "tr_error" => "none",
-            "tr_email" => "artur18@wp.pl",
-            "test_mode" => "0",
-            "md5sum" => "697ba8f227ef5629e953d33a10de35f4"
-        ];
-
         Queue::fake();
-
+       
         $response = $this->withHeaders($headers)
-            ->post('/api/confirm-transaction?payment_method=' . $transactionBody['paymentMethod'], $webhookBody);
+            ->post('/api/confirm-transaction?payment-method=' . $transactionBody['paymentMethod'], $webhookBody);
+           
         $response->assertStatus(200);
 
         $this->assertDatabaseHas('transactions', [
-            'transaction_uuid' => '8fe22800-d5ed-40e3-8dda-5289bc29e314',
+            'transaction_uuid' => $transaction->transaction_uuid,
             'status' => TransactionStatus::SUCCESS
         ]);
 
-        Queue::assertPushed(ProcessWebhookJob::class, function ($job) {
-            return $job->transaction->transaction_uuid === '8fe22800-d5ed-40e3-8dda-5289bc29e314';
+        Queue::assertPushed(ProcessWebhookJob::class, function ($job) use ($transaction) {
+            return $job->transaction->transaction_uuid === $transaction->transaction_uuid;
         });
     }
 
-    public function test_confirm_transaction_with_webhook_body_or_signature_invalid(): void
+    #[DataProvider('confirmTransactionWithWebookBodyOrSignatureInvalid')]
+    public function test_confirm_transaction_with_webhook_body_or_signature_invalid(array $headers, array $webhookBody, string $paymentMethod): void
     {
-        $headers = [
-            'x-jws-signature' => ['Uuc2FuZGJveC50cGF5LmNvbVwveDUwOVwvbm90aWZpY2F0aW9ucy1qd3MucGVtIn0..HalI3jDvtvVGCn5wSiUUTH4ZSjAbbSEo2nbcI_PfqJIVgnH_vW6RMLEfOxfDQLkpZZoGNwgYg9fqw3h3zBt11qPDXn_m79iNnBe0-stLk4TPBDUEATEULIkpjLolFm727kNtZs2cxyfZm03SwtVOC7WrOQTEXqCZXtrGhONy-Sz_j4duG-haiAOvKLAbCJC4eRQvjxfX0LaUWhqscmJitZrJjb_l7THT-cA5Pq7FA4zbJMgbAHzRE6we41fFeQXal4Je3s5_KwbDzdXwpaYCo2MhOZTBEaUsMdvZHwKfKPYW7WcLhhqG_-tNaa8ZNTHrh8_B0wvKet4ReBPhAAfjwFjRQ2t4hX8Ukx0OYuTBz2LRh9Z-Gy7YQWR7-da67kwdTlKIfhtvUfwtu62PgV5LkVX9bll_27mKwZfwJvESqJoO4AUV-_Xn7g4sLNG_CkPc7QDk4TIXnKZuj19uvwEW4UVZlXmL4R2FaGJqmEPspBljPhte9Ez-avc1QmfV0WS4AF94GRMBy5XO-1ubiUZq9x6xlUIlwZ3Du7lz71uNpLHoZu2aBTm8ZnsB9zrVkfN1ZVuxEQ7Kx723bJdTH9KerT0fjTa7j9fKMBmwL64XqZmLMRAJmeo_iIfXVgYtdDunHOSYzat16QXbqDLykCxIHUcQ0UnJAai8LlAbGq66q2g'],
-        ];
-
-        $webhookBody = [
-            'data' => 'invalid'
-        ];
-
-        $payment_method = 'TPAY';
-
         $response = $this->withHeaders($headers)
-            ->post('/api/confirm-transaction?payment_method=' . $payment_method, $webhookBody);
+            ->post('/api/confirm-transaction?payment-method=' . $paymentMethod, $webhookBody);
         $response->assertStatus(500);
         $response->assertJson([
             'error' => 'Invalid webhook payload or signature.'
         ]);
     }
 
-    public function test_confirm_transaction_with_status_chargeback(): void
+    #[DataProvider('confirmTransactionStatusRefundProvider')]
+    public function test_confirm_transaction_with_status_refund($headers, $webHookBody, $paymentMethod): void
     {
-        $headers = [
-            'x-jws-signature' => ['eyJhbGciOiJSUzI1NiIsIng1dSI6Imh0dHBzOlwvXC9zZWN1cmUuc2FuZGJveC50cGF5LmNvbVwveDUwOVwvbm90aWZpY2F0aW9ucy1qd3MucGVtIn0..m12kqrTYyviJtYtVQeoDHtbt_gwHO5KB-MqLSKWmxxYR7VnWgx_Kbvbhet69gREtBeKtf_YRCKdpNeJBxiTgoBisvo5lzSTqiaYimE_dXCc6Hah-j8xGKKFucqV7gauC-NK0KWsT9uE1q5nTSXu4XCxUd1X2jdU9He9Ua8MD37Y7-4GZfu4q9L3SctVPZCgzGMLsW1kvErrF_j3WruiANC95Ynyi7DvgNaLSx-7bdKuFPRuFle4V8ehauCr3Znwp4i79hjx-E7uLHZRMIEEbA5PaBWvk8N1fqT-w0Mwh_k4Ywzg86vInLmthONaVl5NsUPVUDmizvLTbVGTta6LxziXZwSY-7lTNbqHrtX70hptpml52kVuwq8ipArSbc07J-X5Fe2ADSIdx3gNCf1kJVK8Eu49cTnTfaAGcA1Jaz4Tdbe0ou1TI57MZwl-K_oUjhkFiGT5ZpPvEs8M-012lLI7yNAXs3HjPf4hTQDCCKytvzRPQFGXmFEZCJ_jiQNpmg5TBFA3r8FqMGfHf1R9HimL8WMWUL36LOCB-BguJMN80w50rHmjgroFm0_YGbxIjOCl3gHBhZF5lV-JrpyfyZhempoLXQmlVoxHjdkkJRSc6m1jDhca88vQJ7OQbUlyyEXmzhhKTMLUp7MFephvzDunSKPvJQ2h_UkhmmBoIYac'],
-        ];
+        Transaction::factory()->create([
+            'transaction_uuid' => $webHookBody['tr_crc']
+        ]);
 
-        $webhookBody = [
-            "id" => "401406",
-            "tr_id" => "TR-4H6K-2KU78X",
-            "tr_date" => "2025-04-15 00:47:24",
-            "tr_crc" => "a875e396-3c67-4415-a865-1fcea225154e",
-            "tr_amount" => "10.00",
-            "tr_paid" => "10.00",
-            "tr_desc" => "a875e396-3c67-4415-a865-1fcea225154e",
-            "tr_status" => "CHARGEBACK",
-            "tr_error" => "none",
-            "tr_email" => "artur18@wp.pl",
-            "test_mode" => "0",
-            "md5sum" => "1caca1c5bd0aef725279392418281d74"
-        ];
+        $uuid = $webHookBody['tr_crc'];
+        $transaction = Transaction::where('transaction_uuid', $uuid)->first();
 
-        $payment_method = 'TPAY';
+        Queue::fake();
 
         $response = $this->withHeaders($headers)
-            ->post('/api/confirm-transaction?payment_method=' . $payment_method, $webhookBody);
+            ->post('/api/confirm-transaction?payment-method=' . $paymentMethod, $webHookBody);
         $response->assertStatus(200);
-        $content = $response->getContent();
+        $response->assertSee('TRUE');
 
-        $this->assertIsString($content);
-        $result = json_decode($content, true);
-        $this->assertEquals('a875e396-3c67-4415-a865-1fcea225154e', $result['transactionUuid']);
+        $this->assertNotNull($transaction);
+        $this->assertDatabaseHas('transactions', [
+            'transaction_uuid' => $uuid,
+            'status' => TransactionStatus::REFUND_SUCCESS,
+        ]);
+
+        Queue::assertPushed(ProcessWebhookJob::class, function ($job) use ($uuid) {
+            return $job->transaction->transaction_uuid === $uuid;
+        });
     }
 
     public function test_refund_payment_missing_transactionUuid(): void
@@ -232,25 +165,22 @@ class TransactionControllerTest extends TestCase
         ]);
     }
 
-    public function test_refund_payment_invalid_transactionUuid(): void
+    #[DataProvider('serviceAndMockProvider')]
+    public function test_refund_payment_invalid_transactionUuid(array $mockResponse, string $serviceClass): void
     {
         $refundBody = [
             'transactionUuid' => 'invalid-uuid'
         ];
 
-        $mock = new MockHandler([
-            new Response(200, [], json_encode(['access_token' => 'mock-token'])),
-            new Response(400, [], ''),
-        ]);
+        $mock = new MockHandler($mockResponse);
 
         $handlerStack = HandlerStack::create($mock);
         $client = new Client(['handler' => $handlerStack]);
 
-        $tpayService = new TPayService($client);
-        $this->app->bind(TPayService::class, fn() => $tpayService);
+        $service = new $serviceClass($client);
+        $this->app->bind($serviceClass, fn() => $service);
 
         Merchant::factory()->create();
-
 
         $response = $this->withHeaders([
             'X-API-Key' => 'testowy-api-key'
@@ -270,7 +200,7 @@ class TransactionControllerTest extends TestCase
         Merchant::factory()->create();
         $transaction = Transaction::factory()->create([
             'transaction_uuid' => '470ea80c-3929-4ee7-964e-c9eb4ac422df',
-            'status' => TransactionStatus::REFUND
+            'status' => TransactionStatus::REFUND_SUCCESS
         ]);
 
         $response = $this->withHeaders([
@@ -284,30 +214,23 @@ class TransactionControllerTest extends TestCase
         $this->assertDatabaseHas('transactions', [
             'transaction_uuid' => $transaction->transaction_uuid
         ]);
-        $this->assertEquals(TransactionStatus::REFUND, $transaction->status);
+        $this->assertEquals(TransactionStatus::REFUND_SUCCESS, $transaction->status);
     }
 
-    public function test_refund_payment_is_success(): void
+    #[DataProvider('refundTransactionIsSuccessProvider')]
+    public function test_refund_payment_is_success(string $uuid, array $factoryBody, $mockResponse, $serviceClass, $refundBody): void
     {
-        $refundBody = [
-            'transactionUuid' => '470ea80c-3929-4ee7-964e-c9eb4ac422df'
-        ];
 
         Merchant::factory()->create();
-        Transaction::factory()->create([
-            'transaction_uuid' => '470ea80c-3929-4ee7-964e-c9eb4ac422df',
-        ]);
+        Transaction::factory()->create($factoryBody);
 
-        $mock = new MockHandler([
-            new Response(200, [], json_encode(['access_token' => 'mock-token'])),
-            new Response(200, [], json_encode(['result' => 'success', 'status' => 'refund'])),
-        ]);
+        $mock = new MockHandler($mockResponse);
 
         $handlerStack = HandlerStack::create($mock);
         $client = new Client(['handler' => $handlerStack]);
 
-        $tpayService = new TPayService($client);
-        $this->app->bind(TPayService::class, fn() => $tpayService);
+        $service = new $serviceClass($client);
+        $this->app->bind($serviceClass, fn() => $service);
 
         Queue::fake();
 
@@ -322,12 +245,241 @@ class TransactionControllerTest extends TestCase
         $content = $response->getContent();
         $this->assertIsString($content);
         $result = json_decode($content, true);
-        $this->assertEquals('470ea80c-3929-4ee7-964e-c9eb4ac422df', $result['transactionUuid']);
+        $this->assertEquals($uuid, $result['transactionUuid']);
         $transaction = Transaction::where('transaction_uuid', $result['transactionUuid'])->first();
         $this->assertNotNull($transaction);
         $this->assertDatabaseHas('transactions', [
             'transaction_uuid' => $transaction->transaction_uuid
         ]);
-        $this->assertEquals(TransactionStatus::REFUND, $transaction->status);
+        $this->assertEquals(TransactionStatus::REFUND_PENDING, $transaction->status);
+    }
+
+    public static function refundTransactionIsSuccessProvider(): array
+    {
+        return [
+            'TPAY' => [
+                '470ea80c-3929-4ee7-964e-c9eb4ac422df',
+                [
+                    'transaction_uuid' => '470ea80c-3929-4ee7-964e-c9eb4ac422df',
+                    'payment_method' => 'TPAY'
+                ],
+                [
+                    new Response(200, [], json_encode(['access_token' => 'mock-token'])),
+                    new Response(200, [], json_encode(['result' => 'success', 'status' => 'refund'])),
+                ],
+                TPayService::class,
+                [
+                    'transactionUuid' => '470ea80c-3929-4ee7-964e-c9eb4ac422df',
+                ]
+            ],
+            'PAYNOW' => [
+                '470ea80c-3929-4ee7-964e-c9eb4ac422df',
+                [
+                    'transaction_uuid' => '470ea80c-3929-4ee7-964e-c9eb4ac422df',
+                    'payment_method' => 'PAYNOW'
+                ],
+                [
+                    new Response(201, [], json_encode(['refundId' => '12345', 'status' => 'PENDING'])),
+                ],
+                PaynowService::class,
+                [
+                    'transactionUuid' => '470ea80c-3929-4ee7-964e-c9eb4ac422df',
+                ]
+            ]
+        ];
+    }
+
+    public static function createTransactionBodyProviderWithInvalidData(): array
+    {
+        return [
+            'TPAY' => [
+                [
+                    'email' => 'jankowalski@gmail.com',
+                    'paymentMethod' => 'TPAY',
+                    'notificationUrl' => 'https://notification.url',
+                ]
+            ],
+            'PAYNOW' => [
+                [
+                    'email' => 'jankowalski@gmail.com',
+                    'paymentMethod' => 'PAYNOW',
+                    'notificationUrl' => 'https://notification.url'
+                ]
+            ]
+        ];
+    }
+
+    public static function createTransactionFailedProvider(): array
+    {
+        return [
+            'TPAY' => [
+                [
+                    'amount' => 100,
+                    'email' => 'jankowalski@gmail.com',
+                    'name' => 'Jan Kowalski',
+                    'paymentMethod' => 'TPAY',
+                    'notificationUrl' => 'https://notification.url'
+                ],
+                TPayService::class,
+                [
+                    new Response(200, [], json_encode(['access_token' => 'mock-token'])),
+                    new Response(500, [], '')
+                ]
+            ],
+            'PAYNOW' => [
+                [
+                    'amount' => 100,
+                    'email' => 'jankowalski@gmail.com',
+                    'name' => 'Jan Kowalski',
+                    'currency' => 'PLN',
+                    'paymentMethod' => 'PAYNOW',
+                    'notificationUrl' => 'https://notification.url'
+                ],
+                PaynowService::class,
+                [
+                    new Response(500, [], '')
+                ]
+            ]
+        ];
+    }
+
+    public static function paymentGatewaysTransactionLifecycleProvider(): array
+    {
+        return [
+            'TPAY' => [
+                TPayService::class,
+                [
+                    'amount' => 100,
+                    'email' => 'jankowalski@gmail.com',
+                    'name' => 'Jan Kowalski',
+                    'paymentMethod' => 'TPAY',
+                    'notificationUrl' => 'https://notification.url',
+                ],
+                [
+                    new Response(200, [], json_encode(['access_token' => 'mock-token'])),
+                    new Response(200, [], json_encode([
+                        'transactionId' => '12345',
+                        'hiddenDescription' => '8fe22800-d5ed-40e3-8dda-5289bc29e314',
+                        'payer' => [
+                            'name' => 'Jan Kowalski',
+                            'email' => 'jankowalski@gmail.com',
+                        ],
+                        'amount' => 100,
+                        'currency' => 'PLN',
+                        'transactionPaymentUrl' => 'https://example.com/link',
+                    ])),
+                ],
+                [
+                    'x-jws-signature' => ['eyJhbGciOiJSUzI1NiIsIng1dSI6Imh0dHBzOlwvXC9zZWN1cmUuc2FuZGJveC50cGF5LmNvbVwveDUwOVwvbm90aWZpY2F0aW9ucy1qd3MucGVtIn0..HalI3jDvtvVGCn5wSiUUTH4ZSjAbbSEo2nbcI_PfqJIVgnH_vW6RMLEfOxfDQLkpZZoGNwgYg9fqw3h3zBt11qPDXn_m79iNnBe0-stLk4TPBDUEATEULIkpjLolFm727kNtZs2cxyfZm03SwtVOC7WrOQTEXqCZXtrGhONy-Sz_j4duG-haiAOvKLAbCJC4eRQvjxfX0LaUWhqscmJitZrJjb_l7THT-cA5Pq7FA4zbJMgbAHzRE6we41fFeQXal4Je3s5_KwbDzdXwpaYCo2MhOZTBEaUsMdvZHwKfKPYW7WcLhhqG_-tNaa8ZNTHrh8_B0wvKet4ReBPhAAfjwFjRQ2t4hX8Ukx0OYuTBz2LRh9Z-Gy7YQWR7-da67kwdTlKIfhtvUfwtu62PgV5LkVX9bll_27mKwZfwJvESqJoO4AUV-_Xn7g4sLNG_CkPc7QDk4TIXnKZuj19uvwEW4UVZlXmL4R2FaGJqmEPspBljPhte9Ez-avc1QmfV0WS4AF94GRMBy5XO-1ubiUZq9x6xlUIlwZ3Du7lz71uNpLHoZu2aBTm8ZnsB9zrVkfN1ZVuxEQ7Kx723bJdTH9KerT0fjTa7j9fKMBmwL64XqZmLMRAJmeo_iIfXVgYtdDunHOSYzat16QXbqDLykCxIHUcQ0UnJAai8LlAbGq66q2g'],
+                ],
+                [
+                    "id" => "401406",
+                    "tr_id" => "TR-4H6K-2KTYDX",
+                    "tr_date" => "2025-04-14 16:48:43",
+                    "tr_crc" => "8fe22800-d5ed-40e3-8dda-5289bc29e314",
+                    "tr_amount" => "10.00",
+                    "tr_paid" => "10.00",
+                    "tr_desc" => "8fe22800-d5ed-40e3-8dda-5289bc29e314",
+                    "tr_status" => "TRUE",
+                    "tr_error" => "none",
+                    "tr_email" => "artur18@wp.pl",
+                    "test_mode" => "0",
+                    "md5sum" => "697ba8f227ef5629e953d33a10de35f4"
+                ],
+            ],
+            'PAYNOW' => [
+                PaynowService::class,
+                [
+                    'amount' => 10,
+                    'email' => 'jankowalski@gmail.com',
+                    'name' => 'Jan Kowalski',
+                    'currency' => 'PLN',
+                    'paymentMethod' => 'PAYNOW',
+                    'notificationUrl' => 'https://notification.url',
+                ],
+                [
+                    new Response(201, [], json_encode([
+                        'paymentId' => '12345',
+                        'redirectUrl' => 'https://example.com/link',
+                    ])),
+                ],
+                [
+                    'signature' => ['NjG0SXkhq1VjAE8F/GJ2WdTTYKPmfqW9dfK7ZT7YoR8=']
+                ],
+                [
+                    'paymentId' => '12345',
+                    'externalId' => '8fe22800-d5ed-40e3-8dda-5289bc29e314',
+                    'status' => 'CONFIRMED'
+                ],
+            ]
+        ];
+    }
+    public static function confirmTransactionWithWebookBodyOrSignatureInvalid(): array
+    {
+        return [
+            'TPAY' => [
+                [
+                    'x-jws-signature' => ['Uuc2FuZGJveC50cGF5LmNvbVwveDUwOVwvbm90aWZpY2F0aW9ucy1qd3MucGVtIn0..HalI3jDvtvVGCn5wSiUUTH4ZSjAbbSEo2nbcI_PfqJIVgnH_vW6RMLEfOxfDQLkpZZoGNwgYg9fqw3h3zBt11qPDXn_m79iNnBe0-stLk4TPBDUEATEULIkpjLolFm727kNtZs2cxyfZm03SwtVOC7WrOQTEXqCZXtrGhONy-Sz_j4duG-haiAOvKLAbCJC4eRQvjxfX0LaUWhqscmJitZrJjb_l7THT-cA5Pq7FA4zbJMgbAHzRE6we41fFeQXal4Je3s5_KwbDzdXwpaYCo2MhOZTBEaUsMdvZHwKfKPYW7WcLhhqG_-tNaa8ZNTHrh8_B0wvKet4ReBPhAAfjwFjRQ2t4hX8Ukx0OYuTBz2LRh9Z-Gy7YQWR7-da67kwdTlKIfhtvUfwtu62PgV5LkVX9bll_27mKwZfwJvESqJoO4AUV-_Xn7g4sLNG_CkPc7QDk4TIXnKZuj19uvwEW4UVZlXmL4R2FaGJqmEPspBljPhte9Ez-avc1QmfV0WS4AF94GRMBy5XO-1ubiUZq9x6xlUIlwZ3Du7lz71uNpLHoZu2aBTm8ZnsB9zrVkfN1ZVuxEQ7Kx723bJdTH9KerT0fjTa7j9fKMBmwL64XqZmLMRAJmeo_iIfXVgYtdDunHOSYzat16QXbqDLykCxIHUcQ0UnJAai8LlAbGq66q2g']
+                ],
+                [
+                    'data' => 'invalid'
+                ],
+                'TPAY',
+            ],
+            'PAYNOW' => [
+                [
+                    'signature' => ['invalid-signature']
+                ],
+                [
+                    'data' => 'invalid'
+                ],
+                'PAYNOW'
+            ]
+        ];
+    }
+
+    public static function confirmTransactionStatusRefundProvider(): array
+    {
+        return [
+            'TPAY' => [
+                [
+                    'x-jws-signature' => ['eyJhbGciOiJSUzI1NiIsIng1dSI6Imh0dHBzOlwvXC9zZWN1cmUuc2FuZGJveC50cGF5LmNvbVwveDUwOVwvbm90aWZpY2F0aW9ucy1qd3MucGVtIn0..m12kqrTYyviJtYtVQeoDHtbt_gwHO5KB-MqLSKWmxxYR7VnWgx_Kbvbhet69gREtBeKtf_YRCKdpNeJBxiTgoBisvo5lzSTqiaYimE_dXCc6Hah-j8xGKKFucqV7gauC-NK0KWsT9uE1q5nTSXu4XCxUd1X2jdU9He9Ua8MD37Y7-4GZfu4q9L3SctVPZCgzGMLsW1kvErrF_j3WruiANC95Ynyi7DvgNaLSx-7bdKuFPRuFle4V8ehauCr3Znwp4i79hjx-E7uLHZRMIEEbA5PaBWvk8N1fqT-w0Mwh_k4Ywzg86vInLmthONaVl5NsUPVUDmizvLTbVGTta6LxziXZwSY-7lTNbqHrtX70hptpml52kVuwq8ipArSbc07J-X5Fe2ADSIdx3gNCf1kJVK8Eu49cTnTfaAGcA1Jaz4Tdbe0ou1TI57MZwl-K_oUjhkFiGT5ZpPvEs8M-012lLI7yNAXs3HjPf4hTQDCCKytvzRPQFGXmFEZCJ_jiQNpmg5TBFA3r8FqMGfHf1R9HimL8WMWUL36LOCB-BguJMN80w50rHmjgroFm0_YGbxIjOCl3gHBhZF5lV-JrpyfyZhempoLXQmlVoxHjdkkJRSc6m1jDhca88vQJ7OQbUlyyEXmzhhKTMLUp7MFephvzDunSKPvJQ2h_UkhmmBoIYac'],
+                ],
+                [
+                    "id" => "401406",
+                    "tr_id" => "TR-4H6K-2KU78X",
+                    "tr_date" => "2025-04-15 00:47:24",
+                    "tr_crc" => "a875e396-3c67-4415-a865-1fcea225154e",
+                    "tr_amount" => "10.00",
+                    "tr_paid" => "10.00",
+                    "tr_desc" => "a875e396-3c67-4415-a865-1fcea225154e",
+                    "tr_status" => "CHARGEBACK",
+                    "tr_error" => "none",
+                    "tr_email" => "artur18@wp.pl",
+                    "test_mode" => "0",
+                    "md5sum" => "1caca1c5bd0aef725279392418281d74"
+                ],
+                'TPAY'
+            ],
+        ];
+    }
+
+    public static function serviceAndMockProvider(): array
+    {
+        return [
+            'TPAY' => [
+                [
+                    new Response(200, [], json_encode(['access_token' => 'mock-token'])),
+                    new Response(400, [], ''),
+                ],
+                TPayService::class
+            ],
+            'PAYNOW' => [
+                [
+                    new Response(400, [], ''),
+                ],
+                PaynowService::class
+            ]
+        ];
     }
 }

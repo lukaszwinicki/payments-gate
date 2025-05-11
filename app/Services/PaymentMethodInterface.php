@@ -9,6 +9,6 @@ use App\Dtos\RefundPaymentDto;
 interface PaymentMethodInterface
 {
     public function create(array $transactionBody): ?CreateTransactionDto;
-    public function confirm(array $webHookBody, array $headers): ConfirmTransactionDto;
+    public function confirm(array $webHookBody, array $headers): ?ConfirmTransactionDto;
     public function refund(array $refundBody): ?RefundPaymentDto;
 } 

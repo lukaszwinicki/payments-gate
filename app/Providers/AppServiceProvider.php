@@ -3,6 +3,8 @@
 namespace App\Providers;
 
 use App\Services\CreateTransactionValidatorService;
+use App\Services\NodaService;
+use App\Services\PaynowService;
 use App\Services\TPaySignatureValidator;
 use Illuminate\Support\ServiceProvider;
 use App\Services\TPayService;
@@ -25,6 +27,14 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->bind(TPayService::class, function () {
             return new TPayService(new Client());
+        });
+
+        $this->app->bind(PaynowService::class, function () {
+            return new PaynowService(new Client());
+        });
+
+        $this->app->bind(NodaService::class, function () {
+            return new NodaService(new Client());
         });
     }
 

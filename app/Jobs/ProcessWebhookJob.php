@@ -37,14 +37,14 @@ class ProcessWebhookJob implements ShouldQueue
             'name' => $this->transaction->name,
             'email' => $this->transaction->email,
             'currency' => $this->transaction->currency,
-            'status' => $this->transaction->status
+            'status' => $this->transaction->status,
+            'payment_method' => $this->transaction->payment_method
         ];
 
         try {
             $response = $client->request('POST', $this->transaction->notification_url, [
                 'json' => $clientWebhookBody
             ]);
-
             Notification::create([
                 'transaction_id' => $this->transaction->id,
                 'status' => $response->getStatusCode() == 200 ? TransactionStatus::SUCCESS : TransactionStatus::FAIL,
@@ -52,7 +52,6 @@ class ProcessWebhookJob implements ShouldQueue
             ]);
 
         } catch (Exception) {
-
             Notification::create([
                 'transaction_id' => $this->transaction->id,
                 'status' => TransactionStatus::FAIL,

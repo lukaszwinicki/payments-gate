@@ -23,7 +23,7 @@ class TPayService implements PaymentMethodInterface
 
     public function create(array $transactionBody): ?CreateTransactionDto
     {
-        $uuid = Str::uuid();
+        $uuid = (string) Str::uuid();
         $tpayRequestBody = [
             'amount' => $transactionBody['amount'],
             'description' => $uuid,
@@ -34,7 +34,7 @@ class TPayService implements PaymentMethodInterface
             ],
             'callbacks' => [
                 'notification' => [
-                    'url' => config('app.url') . '/api/confirm-transaction?payment_method=' . $transactionBody['paymentMethod']
+                    'url' => config('app.url') . '/api/confirm-transaction?payment-method=' . $transactionBody['paymentMethod']
                 ]
             ]
         ];
@@ -58,7 +58,7 @@ class TPayService implements PaymentMethodInterface
         $tpayResponseBody = json_decode($createTransaction->getBody()->getContents(), true);
         $createTransactionDto = new CreateTransactionDto(
             $tpayResponseBody['transactionId'],
-            $tpayResponseBody['hiddenDescription'],
+            $uuid,
             $tpayResponseBody['payer']['name'],
             $tpayResponseBody['payer']['email'],
             $tpayResponseBody['currency'],
@@ -69,38 +69,34 @@ class TPayService implements PaymentMethodInterface
         return $createTransactionDto;
     }
 
-    public function confirm(array $webHookBody, array $headers): ConfirmTransactionDto
+    public function confirm(array $webHookBody, array $headers): ?ConfirmTransactionDto
     {
         $jws = $headers['x-jws-signature'][0];
         $resultValidate = TPaySignatureValidatorFacade::confirm(http_build_query($webHookBody), $jws);
 
         if (!$resultValidate) {
-            return new ConfirmTransactionDto(TransactionStatus::FAIL);
+            return null;
         }
 
         $remoteCode = $webHookBody['tr_crc'];
-        $completed = false;
         $status = null;
 
         if ($webHookBody['tr_status'] == 'TRUE') {
-            $completed = $webHookBody['tr_status'] == 'TRUE';
             $status = TransactionStatus::SUCCESS;
         }
 
         if ($webHookBody['tr_status'] == 'CHARGEBACK') {
-            $completed = $webHookBody['tr_status'] == 'CHARGEBACK';
-            $status = TransactionStatus::REFUND;
+            $status = TransactionStatus::REFUND_SUCCESS;
         }
 
-        return new ConfirmTransactionDto($status ?? TransactionStatus::FAIL, 'TRUE', $remoteCode, $completed);
+        return new ConfirmTransactionDto($status ?? TransactionStatus::FAIL, 'TRUE', $remoteCode);
     }
-
 
     public function refund(array $refundBody): ?RefundPaymentDto
     {
         $transaction = Transaction::where('transaction_uuid', $refundBody['transactionUuid'])->first();
-
-        if ($transaction && $transaction->status === TransactionStatus::REFUND) {
+      
+        if ($transaction->status !== TransactionStatus::SUCCESS && $transaction->status !== TransactionStatus::REFUND_FAIL) {
             return null;
         }
 
@@ -122,7 +118,7 @@ class TPayService implements PaymentMethodInterface
         $responseBodyRefund = json_decode($responseRefund->getBody()->getContents(), true);
 
         if ($responseBodyRefund['result'] === 'success' && $responseBodyRefund['status'] === 'refund') {
-            return new RefundPaymentDto(TransactionStatus::REFUND);
+            return new RefundPaymentDto(TransactionStatus::REFUND_PENDING);
         }
 
         return null;

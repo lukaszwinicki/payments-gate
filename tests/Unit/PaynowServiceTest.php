@@ -183,32 +183,32 @@ class PaynowServiceTest extends TestCase
         return [
             'status CONFIRMED' => [
                 ['externalId' => '12345', 'status' => 'CONFIRMED'],
-                ['signature' => ['Y2vpnT9gSsHkhdIpNDqju/C+V8evR1qRr+7RV3Scfxk=']],
+                ['signature' => ['z+qfdYIsV8k9YG3eBH98CCEVjcSRDYosJcsaiw5u8tY=']],
                 TransactionStatus::SUCCESS,
             ],
             'status NEW' => [
                 ['externalId' => '12345', 'status' => 'NEW'],
-                ['signature' => ['RfD271QC1oR2RRcYgM/KXLaAaAe/M+sJyjLUtu/PfIs=']],
+                ['signature' => ['3u61AYo7ggb4zzoG/usMix/59bCFXMldQi5LCsgkDQg=']],
                 TransactionStatus::PENDING,
             ],
             'status PENDING' => [
                 ['externalId' => '12345', 'status' => 'PENDING'],
-                ['signature' => ['f/xD0doW05/THyBQnF2dKgrMw625ZQOSjhJy3Z/jgkU=']],
+                ['signature' => ['P5tc+GCllkLpo0Za8V8Hfa/rC9+InJLbUMY1hvji0Xs=']],
                 TransactionStatus::PENDING,
             ],
             'status ERROR' => [
                 ['externalId' => '12345', 'status' => 'ERROR'],
-                ['signature' => ['UDJ0mT/yaHqa6Vwi4As7jqP86Xcl9683DE45O66Qru4=']],
+                ['signature' => ['XCkZbxK6CQ9GB47buV4dS4XhwDXz1p579bkHT3ZYKVk=']],
                 TransactionStatus::FAIL,
             ],
             'status REJECTED' => [
                 ['externalId' => '12345', 'status' => 'REJECTED'],
-                ['signature' => ['EZKqpyrMBKNRz8gBkFq0ogtMTcebnIgYEfUVtBCEygk=']],
+                ['signature' => ['1LJgMRiNdB5UoCpJbcTa42UxZsCZrBy7oQGeBMKP/3s=']],
                 TransactionStatus::FAIL,
             ],
             'status EXPIRED' => [
                 ['externalId' => '12345', 'status' => 'EXPIRED'],
-                ['signature' => ['9xZSRfBUWft6jl73KMrTGBic9gwche4nJF+mQyMZgwk=']],
+                ['signature' => ['bRWfyZ3xMx1gabpE3UeRVrdjdNVqUKmsStizHl8zwdQ=']],
                 TransactionStatus::FAIL,
             ],
         ];

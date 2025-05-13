@@ -101,7 +101,7 @@ class NodaServiceTest extends TestCase
         $webhookBody = [
             'PaymentId' => '717b62f9-d92c-4faa-99a5-b967a2eb14fc',
             'Status' => 'Done',
-            'Signature' => 'a72d1711756b438202110ba90645deb917397b0231a621e8a234fb28b9ea0d22',
+            'Signature' => 'a0be8a3b50aec5bd14684c0a46c8a1278fb134870607d0cd36ada937432161c3',
             'MerchantPaymentId' => 'ffcb1ed7-c066-4521-a7d8-bb08424e56e5'
         ];
 

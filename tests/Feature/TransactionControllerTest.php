@@ -391,7 +391,7 @@ class TransactionControllerTest extends TestCase
                     ])),
                 ],
                 [
-                    'signature' => ['NjG0SXkhq1VjAE8F/GJ2WdTTYKPmfqW9dfK7ZT7YoR8=']
+                    'signature' => ['bM4K/b1PFP3ic2K+rf3j1UnF7yU0bqt9dJjQvhJ4qMw=']
                 ],
                 [
                     'paymentId' => '12345',
@@ -421,7 +421,7 @@ class TransactionControllerTest extends TestCase
                 [
                     'PaymentId' => '717b62f9-d92c-4faa-99a5-b967a2eb14fc',
                     'Status' => 'Done',
-                    'Signature' => 'a72d1711756b438202110ba90645deb917397b0231a621e8a234fb28b9ea0d22',
+                    'Signature' => 'a0be8a3b50aec5bd14684c0a46c8a1278fb134870607d0cd36ada937432161c3',
                     'MerchantPaymentId' => '8fe22800-d5ed-40e3-8dda-5289bc29e314'
                 ],
             ]

@@ -1,4 +1,5 @@
 version: '3.8'
+
 services:
   app:
     build:
@@ -16,34 +17,30 @@ services:
     working_dir: /var/www
     volumes:
       - .:/var/www
-      - ./docker-compose/php/local.ini:/usr/local/etc/php/conf.d/local.ini
-
-
-  webserver:
-    image: nginx:alpine
-    container_name: nginx-webserver
-    restart: unless-stopped
     ports:
-      - "8080:80"
-    volumes:
-      - .:/var/www
-      - ./docker-compose/nginx:/etc/nginx/conf.d/
-   
+      - "80:8080"
+    networks:
+      - app-network
 
   db:
-    image: mysql:5.7
-    container_name: mysql
+    image: postgres:15
+    container_name: pgsql
     restart: unless-stopped
     environment:
-      MYSQL_DATABASE: payments-gate
-      MYSQL_ROOT_PASSWORD: test
-      MYSQL_PASSWORD: root
-      MYSQL_USER: laravel
+      POSTGRES_DB: ${DB_DATABASE}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     ports:
-      - "3306:3306"
+      - "5432:5432"
     volumes:
-      - dbdata:/var/lib/mysql
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - app-network
 
 volumes:
-  dbdata:
+  pgdata:
     driver: local
+
+networks:
+  app-network:
+    driver: bridge

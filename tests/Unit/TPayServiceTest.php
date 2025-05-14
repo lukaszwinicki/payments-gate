@@ -32,7 +32,7 @@ class TPayServiceTest extends TestCase
 
     public function test_create_transaction_success(): void
     {
-        Str::createUuidsUsing(fn () => Uuid::fromString('123e4567-e89b-12d3-a456-426614174000'));
+        Str::createUuidsUsing(fn() => Uuid::fromString('123e4567-e89b-12d3-a456-426614174000'));
 
         $transactionBody = [
             'amount' => 100,
@@ -192,17 +192,11 @@ class TPayServiceTest extends TestCase
 
     public function test_refund_success(): void
     {
-        $mockTransaction = Mockery::mock('alias:App\Models\Transaction');
-        $mockTransaction->shouldReceive('where')
-            ->with('transaction_uuid', 'valid-uuid')
-            ->andReturnSelf();
-
-        $mockTransaction->shouldReceive('first')
-            ->andReturn((object) [
-                'transactions_id' => '12345',
-                'transaction_uuid' => 'valid-uuid',
-                'status' => TransactionStatus::SUCCESS
-            ]);
+        Transaction::factory()->create([
+            'transactions_id' => 12345,
+            'transaction_uuid' => 'valid-uuid',
+            'status' => TransactionStatus::SUCCESS,
+        ]);
 
         $mockedResponseBody = [
             'result' => 'success',
@@ -237,19 +231,13 @@ class TPayServiceTest extends TestCase
         $this->assertEquals(TransactionStatus::REFUND_PENDING, $result->status);
     }
 
-        public function test_refund_failed(): void
+    public function test_refund_failed(): void
     {
-        $mockTransaction = Mockery::mock('alias:App\Models\Transaction');
-        $mockTransaction->shouldReceive('where')
-            ->with('transaction_uuid', 'valid-uuid')
-            ->andReturnSelf();
-
-        $mockTransaction->shouldReceive('first')
-            ->andReturn((object) [
-                'transactions_id' => '12345',
-                'transaction_uuid' => 'valid-uuid',
-                'status' => TransactionStatus::SUCCESS
-            ]);
+        Transaction::factory()->create([
+            'transactions_id' => 12345,
+            'transaction_uuid' => 'valid-uuid',
+            'status' => TransactionStatus::SUCCESS,
+        ]);
 
         Cache::shouldReceive('get')
             ->with('token')
@@ -275,18 +263,11 @@ class TPayServiceTest extends TestCase
 
     public function test_refund_transaction_status_is_refund(): void
     {
-        $mockTransaction = Mockery::mock('alias:App\Models\Transaction');
-        $mockTransaction->shouldReceive('where')
-            ->with('transaction_uuid', 'valid-uuid')
-            ->andReturnSelf();
-
-        $mockTransaction->shouldReceive('first')
-            ->andReturn((object) [
-                'transactions_id' => '12345',
-                'transaction_uuid' => 'valid-uuid',
-                'status' => TransactionStatus::REFUND_SUCCESS
-            ]);
-
+        $transaction = Transaction::factory()->create([
+            'transactions_id' => 12345,
+            'transaction_uuid' => 'valid-uuid',
+            'status' => TransactionStatus::REFUND_SUCCESS,
+        ]);
 
         $paymentService = new TPayService();
         $refundBody = [

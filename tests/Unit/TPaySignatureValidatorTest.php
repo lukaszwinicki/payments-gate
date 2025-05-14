@@ -3,8 +3,9 @@
 namespace Tests\Unit;
 
 use App\Services\TPaySignatureValidator;
+use Illuminate\Support\Facades\Config;
 use Mockery;
-use PHPUnit\Framework\TestCase;
+use Tests\TestCase;
 use Illuminate\Support\Facades\Log;
 
 class TPaySignatureValidatorTest extends TestCase
@@ -61,8 +62,7 @@ class TPaySignatureValidatorTest extends TestCase
             ->onlyMethods([])
             ->getMock();
 
-        $mock = Mockery::mock('alias:Illuminate\Support\Facades\Config');
-        $mock->shouldReceive('get')
+        Config::shouldReceive('get')
             ->with('app.tpay.gateway')
             ->andReturn('https://wrong.url');
 
@@ -86,8 +86,7 @@ class TPaySignatureValidatorTest extends TestCase
             ->method('getTrustedCertificate')
             ->willReturn(file_get_contents(__DIR__ . '/Files/TPay/public_key.pem'));
 
-        $mock = Mockery::mock('alias:Illuminate\Support\Facades\Config');
-        $mock->shouldReceive('get')
+        Config::shouldReceive('get')
             ->with('app.tpay.gateway')
             ->andReturn('https://secure.sandbox.tpay.com');
 
@@ -111,8 +110,7 @@ class TPaySignatureValidatorTest extends TestCase
             ->method('getTrustedCertificate')
             ->willReturn(file_get_contents(__DIR__ . '/Files/TPay/public_key.pem'));
 
-        $mock = Mockery::mock('alias:Illuminate\Support\Facades\Config');
-        $mock->shouldReceive('get')
+        Config::shouldReceive('get')
             ->with('app.tpay.gateway')
             ->andReturn('https://secure.sandbox.tpay.com');
 
@@ -121,7 +119,7 @@ class TPaySignatureValidatorTest extends TestCase
         $result = $validator->confirm('qwerty', $jws . '.payload.signature');
         $this->assertFalse($result);
 
-    
+
     }
 
     public function test_correct(): void
@@ -138,8 +136,7 @@ class TPaySignatureValidatorTest extends TestCase
             ->method('getTrustedCertificate')
             ->willReturn(file_get_contents(__DIR__ . '/Files/TPay/public_key.pem'));
 
-        $mock = Mockery::mock('alias:Illuminate\Support\Facades\Config');
-        $mock->shouldReceive('get')
+        Config::shouldReceive('get')
             ->with('app.tpay.gateway')
             ->andReturn('https://secure.sandbox.tpay.com');
 

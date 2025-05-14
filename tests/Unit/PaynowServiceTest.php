@@ -29,7 +29,7 @@ class PaynowServiceTest extends TestCase
     }
     public function test_create_transaction_success(): void
     {
-        Str::createUuidsUsing(fn () => Uuid::fromString('123e4567-e89b-12d3-a456-426614174000'));
+        Str::createUuidsUsing(fn() => Uuid::fromString('123e4567-e89b-12d3-a456-426614174000'));
 
         $transactionBody = [
             'amount' => 100,
@@ -65,8 +65,8 @@ class PaynowServiceTest extends TestCase
 
     public function test_create_transaction_failed(): void
     {
-        Str::createUuidsUsing(fn () => Uuid::fromString('123e4567-e89b-12d3-a456-426614174000'));
-            
+        Str::createUuidsUsing(fn() => Uuid::fromString('123e4567-e89b-12d3-a456-426614174000'));
+
         $transactionBody = [
             'amount' => 100,
             'email' => 'jankowalski@example.com',
@@ -126,18 +126,13 @@ class PaynowServiceTest extends TestCase
         $refundBody = [
             'transactionUuid' => 'valid-uuid'
         ];
-        $mockTransaction = \Mockery::mock('alias:App\Models\Transaction');
-        $mockTransaction->shouldReceive('where')
-            ->with('transaction_uuid', 'valid-uuid')
-            ->andReturnSelf();
 
-        $mockTransaction->shouldReceive('first')
-            ->andReturn((object) [
-                'transactions_id' => '12345',
-                'transaction_uuid' => 'valid-uuid',
-                'amount' => 10,
-                'status' => TransactionStatus::SUCCESS
-            ]);
+        $transaction = Transaction::factory()->create([
+            'transaction_uuid' => 'valid-uuid',
+            'transactions_id' => 12345,
+            'amount' => 10,
+            'status' => TransactionStatus::SUCCESS,
+        ]);
 
         $paynowService = new PaynowService();
         $confirmTransactionDto = $paynowService->refund($refundBody);

@@ -36,7 +36,7 @@ class TransactionControllerTest extends TestCase
         Merchant::factory()->create();
 
         $response = $this->withHeaders([
-            'X-API-Key' => 'testowy-api-key'
+            'x-api-key' => 'testowy-api-key'
         ])->postJson('/api/create-transaction', $transactionBody);
         $response->assertStatus(422);
         $response->assertJsonStructure([
@@ -60,7 +60,7 @@ class TransactionControllerTest extends TestCase
         Merchant::factory()->create();
 
         $response = $this->withHeaders([
-            'X-API-Key' => 'testowy-api-key'
+            'x-api-key' => 'testowy-api-key'
         ])->postJson('/api/create-transaction', $transactionBody);
         $response->assertStatus(500);
         $response->assertJson([
@@ -82,7 +82,7 @@ class TransactionControllerTest extends TestCase
         Merchant::factory()->create();
 
         $response = $this->withHeaders([
-            'X-API-Key' => 'testowy-api-key'
+            'x-api-key' => 'testowy-api-key'
         ])->postJson('/api/create-transaction', $transactionBody);
         $response->assertStatus(200);
         $content = $response->getContent();
@@ -94,10 +94,9 @@ class TransactionControllerTest extends TestCase
         $this->assertNotNull($transaction);
 
         Queue::fake();
-       
+
         $response = $this->withHeaders($headers)
             ->post('/api/confirm-transaction?payment-method=' . $transactionBody['paymentMethod'], $webhookBody);
-
         $response->assertStatus(200);
 
         $this->assertDatabaseHas('transactions', [
@@ -127,7 +126,7 @@ class TransactionControllerTest extends TestCase
         Transaction::factory()->create([
             'transaction_uuid' => $webHookBody['tr_crc']
         ]);
-
+    
         $uuid = $webHookBody['tr_crc'];
         $transaction = Transaction::where('transaction_uuid', $uuid)->first();
 
@@ -158,7 +157,7 @@ class TransactionControllerTest extends TestCase
         Merchant::factory()->create();
 
         $response = $this->withHeaders([
-            'X-API-Key' => 'testowy-api-key'
+            'x-api-key' => 'testowy-api-key'
         ])->post('/api/refund-payment', $refundBody);
         $response->assertStatus(400);
         $response->assertJson([
@@ -184,7 +183,7 @@ class TransactionControllerTest extends TestCase
         Merchant::factory()->create();
 
         $response = $this->withHeaders([
-            'X-API-Key' => 'testowy-api-key'
+            'x-api-key' => 'testowy-api-key'
         ])->post('/api/refund-payment', $refundBody);
         $response->assertStatus(400);
         $response->assertJson([
@@ -205,7 +204,7 @@ class TransactionControllerTest extends TestCase
         ]);
 
         $response = $this->withHeaders([
-            'X-API-Key' => 'testowy-api-key'
+            'x-api-key' => 'testowy-api-key'
         ])->post('/api/refund-payment', $refundBody);
         $response->assertStatus(500);
         $response->assertJson([
@@ -236,7 +235,7 @@ class TransactionControllerTest extends TestCase
         Queue::fake();
 
         $response = $this->withHeaders([
-            'X-API-Key' => 'testowy-api-key'
+            'x-api-key' => 'testowy-api-key'
         ])->post('/api/refund-payment', $refundBody);
         $response->assertStatus(200);
         $response->assertJson([

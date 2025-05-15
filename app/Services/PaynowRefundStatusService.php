@@ -4,6 +4,7 @@ namespace App\Services;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
+use Illuminate\Support\Facades\Log;
 use Ramsey\Uuid\Uuid;
 use stdClass;
 
@@ -38,11 +39,18 @@ class PaynowRefundStatusService
                 ],
                 'http_errors' => false
             ]);
-        } catch (GuzzleException) {
+        } catch (GuzzleException $e) {
+            Log::error('[SERVICE][PaynowRefundStatusService][ERROR] API request failed', [
+                'message' => $e->getMessage()
+            ]);
             throw new \RuntimeException('Failed to fetch transaction status');
         }
 
         if ($getStatus->getStatusCode() !== 200) {
+            Log::error('[SERVICE][PaynowRefundStatusService][ERROR] getStatus - unexpected status code', [
+                'statusCode' => $getStatus->getStatusCode(),
+                'responseBody' => $getStatus->getBody()->getContents(),
+            ]);
             return null;
         }
 

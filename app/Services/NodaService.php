@@ -9,6 +9,7 @@ use App\Enums\TransactionStatus;
 use App\Exceptions\RefundNotSupportedException;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class NodaService implements PaymentMethodInterface
@@ -20,10 +21,19 @@ class NodaService implements PaymentMethodInterface
     public function create(array $transactionBody): ?CreateTransactionDto
     {
         $uuid = (string) Str::uuid();
+
+        Log::info('[SERVICE][CREATE][NODA][START] Starting create process', [
+            'uuid' => $uuid,
+            'amount' => $transactionBody['amount'],
+            'email' => $transactionBody['email'],
+            'name' => $transactionBody['name'],
+            'paymentMethod' => $transactionBody['paymentMethod'] ?? null,
+        ]);
+
         $nodaRequestBody = [
             'amount' => $transactionBody['amount'],
             'currency' => $transactionBody['currency'],
-            'returnUrl' => config('app.noda.notificationUrl').'/api/confirm-transaction?payment-method=' . $transactionBody['paymentMethod'],
+            'returnUrl' => config('app.noda.notificationUrl') . '/api/confirm-transaction?payment-method=' . $transactionBody['paymentMethod'],
             'paymentId' => $uuid,
             'description' => $uuid,
             'email' => $transactionBody['email'],
@@ -40,10 +50,17 @@ class NodaService implements PaymentMethodInterface
                 'http_errors' => false
             ]);
         } catch (GuzzleException $e) {
+            Log::error('[SERVICE][CREATE][NODA][ERROR] API request failed', [
+                'message' => $e->getMessage()
+            ]);
             throw new \RuntimeException('The transaction could not be completed');
         }
 
         if ($createTransaction->getStatusCode() !== 200) {
+            Log::error('[SERVICE][CREATE][NODA][ERROR] Transaction creation failed - unexpected status code', [
+                'statusCode' => $createTransaction->getStatusCode(),
+                'responseBody' => $createTransaction->getBody()->getContents(),
+            ]);
             return null;
         }
 
@@ -57,23 +74,36 @@ class NodaService implements PaymentMethodInterface
             $transactionBody['amount'],
             $nodaResponseBody['url']
         );
+
+        Log::info('[SERVICE][CREATE][NODA][COMPLETED] Transaction created successfully', [
+            'transactionUuid' => $uuid,
+        ]);
+
         return $createTransactionDto;
     }
 
     public function confirm(array $webHookBody, array $headers): ?ConfirmTransactionDto
     {
+        Log::info('[SERVICE][CONFIRM][NODA][START] Starting transaction confirmation process');
+
         $signature = $webHookBody['Signature'];
         $calculatedSignatureFromWebhook = hash('sha256', $webHookBody['PaymentId'] . $webHookBody['Status'] . config('app.noda.signetureKey'));
 
         if ($signature !== $calculatedSignatureFromWebhook) {
+            Log::error('[SERVICE][CONFIRM][NODA][ERROR] Signature check failed', [
+                'receivedSignature' => $signature,
+                'expectedSignature' => $calculatedSignatureFromWebhook,
+                'webhookBody' => $webHookBody,
+            ]);
             return null;
         }
 
         $remonteCode = $webHookBody['MerchantPaymentId'];
         $status = null;
 
-        if($webHookBody['Status'] == 'Done'){
+        if ($webHookBody['Status'] == 'Done') {
             $status = TransactionStatus::SUCCESS;
+            Log::info('[SERVICE][CONFIRM][NODA][COMPLETED] Transaction is confirmed');
         }
 
         return new ConfirmTransactionDto($status ?? TransactionStatus::FAIL, '', $remonteCode);
@@ -81,6 +111,10 @@ class NodaService implements PaymentMethodInterface
 
     public function refund(array $refund): RefundPaymentDto
     {
+        Log::warning('[SERVICE][REFUND][NODA] Refund is not supported for this payment method.', [
+            'paymentMethod' => 'NODA',
+            'refundData' => $refund,
+        ]);
         throw new RefundNotSupportedException('Refund is not supported for this payment method.');
     }
 }

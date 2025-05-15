@@ -11,6 +11,7 @@ use App\Models\Transaction;
 use App\Services\CreateTransactionValidatorService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use OpenApi\Attributes as OA;
 
 class TransactionController extends Controller
@@ -62,9 +63,19 @@ class TransactionController extends Controller
     {
         $transactionBody = $request->all();
         $apiKeyHeader = $request->header();
+
+        Log::info('[CONTROLLER][CREATE][START] Received create payment request', [
+            'paymentMethod' => $transactionBody['paymentMethod'],
+            'transactionBody' => $transactionBody,
+            'apiKeyHeader' => $apiKeyHeader
+        ]);
+
         $transactionBodyRequestValidator = $this->validator->validate($transactionBody);
 
         if ($transactionBodyRequestValidator->fails()) {
+            Log::error('[CONTROLLER][CREATE][VALIDATION][FAIL]', [
+                'errors' => $transactionBodyRequestValidator->errors()->toArray()
+            ]);
             return response()->json(['error' => $transactionBodyRequestValidator->errors()], 422);
         }
 
@@ -72,6 +83,9 @@ class TransactionController extends Controller
         $createTransactionDto = $paymentService->create($transactionBody);
 
         if ($createTransactionDto === null) {
+            Log::error('[CONTROLLER][CREATE][ERROR] Payment service returned null for transaction creation', [
+                'paymentMethod' => $transactionBody['paymentMethod']
+            ]);
             return response()->json(['error' => 'The transaction could not be completed'], 500);
         }
 
@@ -90,6 +104,11 @@ class TransactionController extends Controller
         $transaction->payment_method = $transactionBody['paymentMethod'];
         $transaction->save();
 
+        Log::info('[CONTROLLER][CREATE][COMPLETED] Transaction is waiting for confirmation', [
+            'paymentMethod' => $transactionBody['paymentMethod'],
+            'transactionUuid' => $transaction->transaction_uuid,
+        ]);
+
         return response()->json(['link' => $createTransactionDto->link, 'transactionUuid' => $transaction->transaction_uuid]);
     }
 
@@ -97,22 +116,41 @@ class TransactionController extends Controller
     {
         $webHookBody = $request->getContentTypeFormat() == 'json' ? $request->json()->all() : $request->request->all();
         $headers = $request->header();
-        
+
+        Log::info('[CONTROLLER][CONFIRM][START] Transaction confirm request', [
+            'paymentMethod' => $request->query('payment-method'),
+            'webHookBody' => $webHookBody,
+            'header' => $headers
+        ]);
+
         $paymentSevice = PaymentMethodFactory::getInstanceByPaymentMethod(PaymentMethod::tryFrom($request->query('payment-method')));
         $confirmTransactionDto = $paymentSevice->confirm($webHookBody, $headers);
 
         if ($confirmTransactionDto?->status !== null) {
-            $transaction = Transaction::where('transaction_uuid', $confirmTransactionDto->remoteCode);
+            $transaction = Transaction::where('transaction_uuid', $confirmTransactionDto->remoteCode)->first();
 
             if ($transaction) {
                 $transaction->update([
                     'status' => $confirmTransactionDto->status
                 ]);
+
+                Log::info('[CONTROLLER][CONFIRM][COMPLETED] Transaction confirm status updated', [
+                    'paymentMethod' => $transaction->payment_method->value,
+                    'transactionUuid' => $transaction->transaction_uuid,
+                    'status' => $confirmTransactionDto->status->value
+                ]);
+
                 ProcessWebhookJob::dispatch($transaction->first());
+
+                Log::info('[CONTROLLER][CONFIRM][NOTIFICATION]', [
+                    'paymentMethod' => $transaction->payment_method->value,
+                    'transactionUuid' => $transaction->transaction_uuid
+                ]);
             }
-         
+
             return response($confirmTransactionDto->responseBody, 200);
         } else {
+            Log::error('[CONTROLLER][CONFIRM][ERROR] Invalid webhook payload or signature');
             return response()->json(['error' => 'Invalid webhook payload or signature.'], 500);
         }
     }
@@ -158,20 +196,48 @@ class TransactionController extends Controller
         $transaction = Transaction::where('transaction_uuid', $refundBody['transactionUuid'])->first();
 
         if (empty($refundBody['transactionUuid']) || !$transaction) {
+            Log::error('[CONTROLLER][REFUND][ERROR] Missing transactionUuid in request or transaction not found', [
+                'transactionUuid' => $refundBody['transactionUuid'],
+            ]);
             return response()->json(['error' => 'Missing or invalid data.'], 400);
         }
 
+        Log::info('[CONTROLLER][REFUND][START] Received refund payment request', [
+            'paymentMethod' => $transaction->payment_method->value,
+            'transactionUuid' => $refundBody['transactionUuid'],
+        ]);
+
         $paymentService = PaymentMethodFactory::getInstanceByPaymentMethod($transaction->payment_method);
         $refundPaymentDto = $paymentService->refund($refundBody);
-       
+
         if ($transaction && $refundPaymentDto !== null && $refundPaymentDto->status === TransactionStatus::REFUND_PENDING) {
             $transaction->status = TransactionStatus::REFUND_PENDING;
             $transaction->save();
+
+            Log::info('[CONTROLLER][REFUND][REFUND_PENDING] Transaction set REFUND_PENDING', [
+                'paymnetMethod' => $transaction->payment_method->value,
+                'transactionUuid' => $transaction->transaction_uuid
+            ]);
+
             ProcessWebhookJob::dispatch($transaction);
 
+            Log::info('[CONTROLLER][REFUND][NOTIFICATION]', [
+                'paymnetMethod' => $transaction->payment_method->value,
+                'transactionUuid' => $transaction->transaction_uuid
+            ]);
         } else {
+            Log::error('[CONTORLLER][REFUND][ERROR] Refund payment not completed', [
+                'paymnetMethod' => $transaction->payment_method->value,
+                'transactionUuid' => $transaction->transaction_uuid,
+            ]);
             return response()->json(['error' => 'Refund payment not completed.'], 500);
         }
+
+        Log::info('[CONTROLLER][REFUND][COMPLETED] Transaction is waiting for confirmation', [
+            'paymnetMethod' => $transaction->payment_method->value,
+            'transactionUuid' => $transaction->transaction_uuid,
+        ]);
+
         return response()->json(['success' => 'Refund', 'transactionUuid' => $transaction->transaction_uuid], 200);
     }
 }

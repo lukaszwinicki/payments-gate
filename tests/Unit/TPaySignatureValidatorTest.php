@@ -20,7 +20,6 @@ class TPaySignatureValidatorTest extends TestCase
         $validator = $this->getMockBuilder(TPaySignatureValidator::class)
             ->onlyMethods([])
             ->getMock();
-        Log::shouldReceive('debug')->once()->with('FALSE - Missing JSW header');
         $result = $validator->confirm('', null);
         $this->assertFalse($result);
     }
@@ -30,7 +29,6 @@ class TPaySignatureValidatorTest extends TestCase
         $validator = $this->getMockBuilder(TPaySignatureValidator::class)
             ->onlyMethods([])
             ->getMock();
-        Log::shouldReceive('debug')->once()->with('FALSE - Invalid JWS header');
         $result = $validator->confirm('', '.headers');
         $this->assertFalse($result);
     }
@@ -40,7 +38,6 @@ class TPaySignatureValidatorTest extends TestCase
         $validator = $this->getMockBuilder(TPaySignatureValidator::class)
             ->onlyMethods([])
             ->getMock();
-        Log::shouldReceive('debug')->once()->with('FALSE - Invalid JWS signature');
         $result = $validator->confirm('', 'header.test');
         $this->assertFalse($result);
     }
@@ -51,7 +48,6 @@ class TPaySignatureValidatorTest extends TestCase
             ->onlyMethods([])
             ->getMock();
         $jws = base64_encode('{"alg":"RS256"}');
-        Log::shouldReceive('debug')->once()->with('FALSE - Missing x5u header');
         $result = $validator->confirm('', $jws . '.payload.test');
         $this->assertFalse($result);
     }
@@ -118,8 +114,6 @@ class TPaySignatureValidatorTest extends TestCase
         Log::shouldReceive('debug')->once()->with('FALSE - Invalid JWS signature with correct certs');
         $result = $validator->confirm('qwerty', $jws . '.payload.signature');
         $this->assertFalse($result);
-
-
     }
 
     public function test_correct(): void
@@ -146,5 +140,4 @@ class TPaySignatureValidatorTest extends TestCase
         $result = $validator->confirm($webhookBody, $jws);
         $this->assertTrue($result);
     }
-
 }

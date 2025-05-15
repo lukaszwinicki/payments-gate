@@ -11,6 +11,7 @@ use App\Services\PaymentMethodInterface;
 use App\Enums\TransactionStatus;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Cache;
 
@@ -24,6 +25,15 @@ class TPayService implements PaymentMethodInterface
     public function create(array $transactionBody): ?CreateTransactionDto
     {
         $uuid = (string) Str::uuid();
+
+        Log::info('[SERVICE][CREATE][TPAY][START] Starting create process', [
+            'uuid' => $uuid,
+            'amount' => $transactionBody['amount'],
+            'email' => $transactionBody['email'],
+            'name' => $transactionBody['name'],
+            'paymentMethod' => $transactionBody['paymentMethod'] ?? null,
+        ]);
+
         $tpayRequestBody = [
             'amount' => $transactionBody['amount'],
             'description' => $uuid,
@@ -48,10 +58,17 @@ class TPayService implements PaymentMethodInterface
                 'http_errors' => false
             ]);
         } catch (GuzzleException $e) {
+            Log::error('[SERVICE][CREATE][TPAY][ERROR] API request failed', [
+                'message' => $e->getMessage()
+            ]);
             throw new \RuntimeException('The transaction could not be completed');
         }
 
         if ($createTransaction->getStatusCode() !== 200) {
+            Log::error('[SERVICE][CREATE][TPAY][ERROR] Transaction creation failed - unexpected status code', [
+                'statusCode' => $createTransaction->getStatusCode(),
+                'responseBody' => $createTransaction->getBody()->getContents(),
+            ]);
             return null;
         }
 
@@ -66,15 +83,25 @@ class TPayService implements PaymentMethodInterface
             $tpayResponseBody['transactionPaymentUrl']
         );
 
+        Log::info('[SERVICE][CREATE][TPAY][COMPLETED] Transaction created successfully', [
+            'transactionUuid' => $uuid,
+        ]);
+
         return $createTransactionDto;
     }
 
     public function confirm(array $webHookBody, array $headers): ?ConfirmTransactionDto
     {
+        Log::info('[SERVICE][CONFIRM][TPAY][START] Starting transaction confirmation process');
+
         $jws = $headers['x-jws-signature'][0];
         $resultValidate = TPaySignatureValidatorFacade::confirm(http_build_query($webHookBody), $jws);
 
         if (!$resultValidate) {
+            Log::error('[SERVICE][CONFIRM][TPAY][ERROR] Webhook signature validation failed', [
+                'webhookBody' => $webHookBody,
+                'jws' => $jws,
+            ]);
             return null;
         }
 
@@ -83,10 +110,12 @@ class TPayService implements PaymentMethodInterface
 
         if ($webHookBody['tr_status'] == 'TRUE') {
             $status = TransactionStatus::SUCCESS;
+            Log::info('[SERVICE][CONFIRM][TPAY][COMPLETED] Transaction is confirmed');
         }
 
         if ($webHookBody['tr_status'] == 'CHARGEBACK') {
             $status = TransactionStatus::REFUND_SUCCESS;
+            Log::info('[SERVICE][CONFIRM][TPAY][REFUND_SUCCESS][COMPLETED] Transaction is refunded');
         }
 
         return new ConfirmTransactionDto($status ?? TransactionStatus::FAIL, 'TRUE', $remoteCode);
@@ -94,9 +123,14 @@ class TPayService implements PaymentMethodInterface
 
     public function refund(array $refundBody): ?RefundPaymentDto
     {
+        Log::info('[SERVICE][REFUND][TPAY][START] Starting refund process');
+
         $transaction = Transaction::where('transaction_uuid', $refundBody['transactionUuid'])->first();
-      
+
         if ($transaction->status !== TransactionStatus::SUCCESS && $transaction->status !== TransactionStatus::REFUND_FAIL) {
+            Log::error('[SERVICE][REFUND][TPAY][ERROR] Unexpected refund transaction status', [
+                'status' => $transaction->status->value
+            ]);
             return null;
         }
 
@@ -108,23 +142,36 @@ class TPayService implements PaymentMethodInterface
                 'http_errors' => false
             ]);
         } catch (GuzzleException $e) {
+            Log::error('[SERVICE][REFUND][TPAY][ERROR] API request failed', [
+                'message' => $e->getMessage()
+            ]);
             throw new \RuntimeException('Failed to refund payment');
         }
 
         if ($responseRefund->getStatusCode() !== 200) {
+            Log::error('[SERVICE][REFUND][TPAY][ERROR] Transaction refund failed - unexpected status code', [
+                'statusCode' => $responseRefund->getStatusCode(),
+                'responseBody' => $responseRefund->getBody()->getContents(),
+            ]);
             return null;
         }
 
         $responseBodyRefund = json_decode($responseRefund->getBody()->getContents(), true);
 
         if ($responseBodyRefund['result'] === 'success' && $responseBodyRefund['status'] === 'refund') {
+
+            Log::info('[SERVICE][REFUND][TPAY][COMPLETED] Transaction refund successfully', [
+                'status' => $responseBodyRefund['status'],
+                'result' => $responseBodyRefund['result'],
+                'transactionUuid' => $responseBodyRefund['transactionUuid'] ?? null,
+            ]);
             return new RefundPaymentDto(TransactionStatus::REFUND_PENDING);
         }
 
         return null;
     }
 
-    public function getToken(): string
+    public function getToken(): ?string
     {
         $tokenBody = [
             'client_id' => config('app.tpay.tokenClientId'),
@@ -137,7 +184,18 @@ class TPayService implements PaymentMethodInterface
                 'http_errors' => false
             ]);
         } catch (GuzzleException $e) {
+            Log::error('[SERVICE][GET_TOKEN][TPAY][ERROR] API request failed', [
+                'message' => $e->getMessage()
+            ]);
             throw new \RuntimeException('Failed to get token');
+        }
+
+        if ($getTokenResponse->getStatusCode() !== 200) {
+            Log::error('[SERVICE][GET_TOKEN][TPAY][ERROR] Unexpected status code', [
+                'statusCode' => $getTokenResponse->getStatusCode(),
+                'responseBody' => $getTokenResponse->getBody()->getContents(),
+            ]);
+            return null;
         }
 
         $token = json_decode($getTokenResponse->getBody()->getContents(), true);

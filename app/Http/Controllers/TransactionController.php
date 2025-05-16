@@ -140,7 +140,7 @@ class TransactionController extends Controller
                     'status' => $confirmTransactionDto->status->value
                 ]);
 
-                ProcessWebhookJob::dispatch($transaction->first());
+                ProcessWebhookJob::dispatch($transaction);
 
                 Log::info('[CONTROLLER][CONFIRM][NOTIFICATION]', [
                     'paymentMethod' => $transaction->payment_method->value,

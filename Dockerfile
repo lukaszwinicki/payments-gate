@@ -26,9 +26,12 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 COPY . /var/www
 
+COPY apache-stdout.conf /etc/apache2/conf-available/apache-stdout.conf
+
 RUN sed -i 's|/var/www/html|/var/www/public|g' /etc/apache2/sites-available/000-default.conf \
     && sed -i 's|/var/www/html|/var/www/public|g' /etc/apache2/apache2.conf \
-    && a2enmod rewrite
+    && a2enmod rewrite \
+    && a2enconf apache-stdout
 
 RUN composer install --no-dev --optimize-autoloader
 

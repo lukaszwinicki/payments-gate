@@ -60,7 +60,7 @@ class CreateTransaction extends Page implements Forms\Contracts\HasForms
 
         $response = Http::withHeaders([
             'X-API-KEY' => $apiKey,
-        ])->post('http://webserver/api/create-transaction', $data);
+        ])->post(config('app.url') . '/api/create-transaction', $data);
 
         if ($response->successful()) {
             $json = $response->json();

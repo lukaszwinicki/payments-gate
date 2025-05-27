@@ -43,7 +43,7 @@ class RefundTransaction extends Page implements Forms\Contracts\HasForms
 
         $response = Http::withHeaders([
             'X-API-KEY' => $apiKey,
-        ])->post('http://webserver/api/refund-payment', $data);
+        ])->post(config('app.url') . '/api/refund-payment', $data);
 
         if ($response->successful()) {
             $json = $response->json();

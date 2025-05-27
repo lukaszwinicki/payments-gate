@@ -41,10 +41,12 @@ RUN composer install --no-dev --optimize-autoloader
 
 RUN npm install && npm run build
 
+RUN php artisan vendor:publish --tag=filament-assets --force
+
 RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache || true
 
 COPY supervisord.conf /etc/supervisord.conf
 
 EXPOSE 80
 
-CMD sh -c "php artisan migrate --force && /usr/bin/supervisord -c /etc/supervisord.conf"
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]

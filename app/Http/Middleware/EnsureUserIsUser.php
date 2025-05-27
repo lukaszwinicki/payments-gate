@@ -12,6 +12,6 @@ class EnsureUserIsUser
         if (auth()->check() && auth()->user()->hasRole('user')) {
             return $next($request);
         }
-        return redirect('/admin');
+        abort(403);
     }
 }

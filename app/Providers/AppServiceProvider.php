@@ -9,7 +9,7 @@ use App\Services\PaynowService;
 use App\Services\TPaySignatureValidator;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\URL;
-use Symfony\Component\HttpFoundation\Request;
+use Illuminate\Http\Request;
 use GuzzleHttp\Client;
 
 
@@ -48,9 +48,7 @@ class AppServiceProvider extends ServiceProvider
     {
         if (config('app.env') === 'production') {
             Request::setTrustedProxies(
-                ['0.0.0.0/0'],
-                Request::HEADER_X_FORWARDED_HOST |
-                Request::HEADER_X_FORWARDED_PORT |
+                ['*'],
                 Request::HEADER_X_FORWARDED_PROTO
             );
 

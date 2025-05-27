@@ -9,6 +9,7 @@ use App\Services\TPaySignatureValidator;
 use Illuminate\Support\ServiceProvider;
 use App\Services\TPayService;
 use GuzzleHttp\Client;
+use Illuminate\Support\Facades\URL;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -43,6 +44,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        if (config('app.env') === 'production') {
+            URL::forceScheme('https');
+        }
     }
 }

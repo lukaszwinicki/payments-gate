@@ -42,4 +42,4 @@ COPY supervisord.conf /etc/supervisord.conf
 
 EXPOSE 80
 
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]
+CMD sh -c "php artisan migrate --force && /usr/bin/supervisord -c /etc/supervisord.conf"

@@ -289,6 +289,7 @@ class TransactionControllerTest extends TestCase
                     'amount' => 100,
                     'email' => 'jankowalski@gmail.com',
                     'name' => 'Jan Kowalski',
+                    'currency' => 'PLN',
                     'paymentMethod' => 'TPAY',
                     'notificationUrl' => 'https://notification.url'
                 ],
@@ -338,6 +339,7 @@ class TransactionControllerTest extends TestCase
                     'amount' => 100,
                     'email' => 'jankowalski@gmail.com',
                     'name' => 'Jan Kowalski',
+                    'currency' => 'PLN',
                     'paymentMethod' => 'TPAY',
                     'notificationUrl' => 'https://notification.url',
                 ],

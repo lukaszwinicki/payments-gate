@@ -7,6 +7,7 @@ use App\Dtos\CreateTransactionDto;
 use App\Enums\TransactionStatus;
 use App\Models\Transaction;
 use App\Services\PaynowService;
+use App\Exceptions\UnsupportedCurrencyException;
 use GuzzleHttp\Client;
 use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;
@@ -27,6 +28,30 @@ class PaynowServiceTest extends TestCase
         \Mockery::close();
         parent::tearDown();
     }
+
+    public function test_throws_exception_when_currency_not_supported_by_payment_method(): void
+    {
+        $transactionBody = [
+            'amount' => 100,
+            'email' => 'test@example.com',
+            'currency' => 'USD', 
+            'name' => 'Test User',
+            'paymentMethod' => 'PAYNOW',
+        ];
+
+        $mock = new MockHandler([
+            new Response(500, [], ''),
+        ]);
+
+        $handlerStack = HandlerStack::create($mock);
+        $client = new Client(['handler' => $handlerStack]);
+        $paynowService = new PaynowService($client);
+
+        $this->expectException(UnsupportedCurrencyException::class);
+        $this->expectExceptionMessage('Currency USD is not supported by PAYNOW.');
+        $paynowService->create($transactionBody);
+    }
+
     public function test_create_transaction_success(): void
     {
         Str::createUuidsUsing(fn() => Uuid::fromString('123e4567-e89b-12d3-a456-426614174000'));

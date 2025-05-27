@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\PaymentMethod;
 use App\Facades\TPaySignatureValidatorFacade;
 use App\Dtos\ConfirmTransactionDto;
 use App\Dtos\CreateTransactionDto;
@@ -9,6 +10,7 @@ use App\Dtos\RefundPaymentDto;
 use App\Models\Transaction;
 use App\Services\PaymentMethodInterface;
 use App\Enums\TransactionStatus;
+use App\Exceptions\UnsupportedCurrencyException;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Support\Facades\Log;
@@ -25,6 +27,17 @@ class TPayService implements PaymentMethodInterface
     public function create(array $transactionBody): ?CreateTransactionDto
     {
         $uuid = (string) Str::uuid();
+        
+        $currency = $transactionBody['currency'];
+        $paymentMethod = PaymentMethod::from($transactionBody['paymentMethod']);
+
+        if (!$paymentMethod->supportsCurrency($currency)) {
+            Log::error('[SERVICE][CREATE][TPAY][ERROR] Currency {$currency} is not supported by {$paymentMethod->value}.', [
+                'currency' => $currency,
+                'paymentMethod' => $paymentMethod,
+            ]);
+            throw new UnsupportedCurrencyException("Currency {$currency} is not supported by {$paymentMethod->value}.");
+        }
 
         Log::info('[SERVICE][CREATE][TPAY][START] Starting create process', [
             'uuid' => $uuid,

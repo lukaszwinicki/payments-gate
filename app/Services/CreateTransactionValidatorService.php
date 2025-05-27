@@ -13,6 +13,7 @@ class CreateTransactionValidatorService
             'amount' => 'required|numeric',
             'email' => 'required|email:rfc,dns|max:255',
             'name' => 'required|string|max:255',
+            'currency' => 'required|string|max:3',
             'paymentMethod' => 'required|string',
             'notificationUrl' => 'required|string|url'
         ];

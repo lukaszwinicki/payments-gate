@@ -24,6 +24,7 @@ class TransactionController extends Controller
         path: "/api/create-transaction",
         tags: ["Transactions"],
         summary: "Create new transaction",
+        description: "Obsługiwane metody płatności: TPAY, PAYNOW, NODA.",
         requestBody: new OA\RequestBody(
             required: true,
             content: new OA\JsonContent(
@@ -32,7 +33,12 @@ class TransactionController extends Controller
                     new OA\Property(property: "amount", type: "string", example: "12.34"),
                     new OA\Property(property: "email", type: "string", example: "jan.kowalski@gmail.com"),
                     new OA\Property(property: "name", type: "string", example: "Jan Kowalski"),
-                    new OA\Property(property: "paymentMethod", type: "string", example: "TPAY"),
+                    new OA\Property(
+                        property: "paymentMethod",
+                        type: "string",
+                        example: "TPAY",
+                        enum: ["TPAY", "PAYNOW", "NODA"],
+                    ),
                     new OA\Property(property: "notificationUrl", type: "string", example: "https://test.payment-gate.pl/callback"),
                 ]
             )
@@ -59,6 +65,7 @@ class TransactionController extends Controller
             ),
         ]
     )]
+
     public function createTransaction(Request $request): JsonResponse
     {
         $transactionBody = $request->all();

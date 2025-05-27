@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y \
     libpng-dev \
     libjpeg-dev \
     libfreetype6-dev \
+    libicu-dev \
     locales \
     zip \
     jpegoptim optipng pngquant gifsicle \
@@ -20,7 +21,7 @@ RUN apt-get update && apt-get install -y \
     supervisor \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) gd \
-    && docker-php-ext-install pdo pdo_mysql pdo_pgsql mbstring zip exif pcntl
+    && docker-php-ext-install pdo pdo_mysql pdo_pgsql mbstring zip exif pcntl intl
 
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 

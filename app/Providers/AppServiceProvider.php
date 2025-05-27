@@ -48,12 +48,12 @@ class AppServiceProvider extends ServiceProvider
     {
         if (config('app.env') === 'production') {
             Request::setTrustedProxies(
-                [request()->getClientIp()],
+                ['0.0.0.0/0'],
                 Request::HEADER_X_FORWARDED_HOST |
                 Request::HEADER_X_FORWARDED_PORT |
                 Request::HEADER_X_FORWARDED_PROTO
             );
-            
+
             URL::forceScheme('https');
         }
     }

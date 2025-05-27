@@ -1,7 +1,14 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\ProfileController;
+
+Route::get('/debug-session', function () {
+    return [
+        'cookie' => request()->cookie(config('session.cookie')),
+        'session_data' => session()->all(),
+        'auth' => auth()->check(),
+    ];
+});
 
 Route::get('/', function () {
     return redirect()->route('login');

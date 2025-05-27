@@ -34,6 +34,12 @@ jobs:
 
       - name: Install Composer dependencies
         run: composer install --prefer-dist --no-progress
+      
+      - name: Install Node.js dependencies
+        run: npm ci
+
+      - name: Build assets with Vite
+        run: npm run build
 
       - name: Copy .env
         run: cp .env.testing .env

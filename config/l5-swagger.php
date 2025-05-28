@@ -173,7 +173,7 @@ return [
                 'api_key' => [
                     'type' => 'apiKey',
                     'description' => 'Wprowadź swój klucz API',
-                    'name' => 'X-API-Key',
+                    'name' => 'X-API-KEY',
                     'in' => 'header',
                 ],
                 /*

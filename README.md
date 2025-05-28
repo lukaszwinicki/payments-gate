@@ -1,66 +1,174 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Payments Gate
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
 
-## About Laravel
+## Overview
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+Payments Gate is a robust and secure payment gateway solution designed to facilitate seamless online transactions. It provides APIs  for integrating payment processing into your applications or websites.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Features
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+- Secure payment processing
+- RESTful API for easy integration
+- Transaction history and reporting
+- Webhook support for real-time notifications
+- Detailed logging and error handling
+- Modular integration of payment processors via dedicated service classes
+  
+## Technology Stack
 
-## Learning Laravel
+- **Framework:** Laravel 12
+- **Authentication:** Laravel Breeze
+- **Authorization:** Laravel Permission
+- **Admin and User Panel:** Filament
+- **Database:** PostgreSQL / MySQL
+- **API:** RESTful, JSON-based
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+## API Documentation
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+Comprehensive API documentation is available online. Visit the following link to explore available endpoints, request/response formats, and integration guides:
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+[API Documentation](https://payments-gate.onrender.com/api/documentation)
 
-## Laravel Sponsors
+## 🚀 Live Demo
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+[Click here to view the live application](https://payments-gate.onrender.com)
 
-### Premium Partners
+## 💳 Payment Processor Integration
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[WebReinvent](https://webreinvent.com/)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Jump24](https://jump24.co.uk)**
-- **[Redberry](https://redberry.international/laravel/)**
-- **[Active Logic](https://activelogic.com)**
-- **[byte5](https://byte5.de)**
-- **[OP.GG](https://op.gg)**
+Payments Gate supports seamless integration with multiple payment processors: **TPay**, **Paynow**, and **Noda**. Each processor is implemented as a dedicated service that adheres to a shared `PaymentMethodInterface`, enabling unified handling of transaction logic (create, confirm, refund) across providers.
 
-## Contributing
+``` php
+interface PaymentMethodInterface
+{
+    public function create(array $transactionBody): ?CreateTransactionDto;
+    public function confirm(array $webHookBody, array $headers): ?ConfirmTransactionDto;
+    public function refund(array $refundBody): ?RefundPaymentDto;
+}
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+### 🧩 Architecture Overview
 
-## Code of Conduct
+The integration uses the **Factory Pattern** to dynamically resolve the appropriate payment provider service based on the selected payment method:
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+```php
+public static function getInstanceByPaymentMethod(?PaymentMethod $paymentMethod): PaymentMethodInterface
+    {
+        return match ($paymentMethod) {
+            PaymentMethod::PAYMENT_METHOD_TPAY => App::make(TPayService::class),
+            PaymentMethod::PAYMENT_METHOD_PAYNOW => App::make(PaynowService::class),
+            PaymentMethod::PAYMENT_METHOD_NODA => App::make(NodaService::class),
+            default => throw new NotImplementedException("Payment method " . ($paymentMethod) . " is not implemented.")
+        };
+    }
+```
 
-## Security Vulnerabilities
+![Architecture Diagram](https://i.imgur.com/y9qFipo.png)
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+
+## 🧾 Integrated Payment Providers
+
+Payments Gate integrates with three major payment providers. Below is a brief overview and links to their official documentation for deeper integration details.
+
+### 🔹 TPay
+
+TPay is one of the most established payment service providers in Poland, supporting dozens of banks, card payments, and online transfers.
+
+- 🔗 API Docs: [https://openapi.sandbox.tpay.com/](https://openapi.sandbox.tpay.com/)
+---
+
+### 🔹 Paynow
+
+Paynow is a Polish online payment system that supports fast payments via bank transfers, BLIK, and cards. It is widely used in e-commerce and provides a clean REST API.
+
+- 🔗 API Docs: [https://docs.paynow.pl/pl/docs/v3/integration](https://docs.paynow.pl/pl/docs/v3/integration)
+---
+
+### 🔹 Noda
+
+Noda is a modern Open Banking payment gateway that enables direct bank payments via PSD2 APIs across Europe.
+
+- 🔗 API Docs: [https://docs.noda.live/reference/introduction](https://docs.noda.live/reference/introduction)
+---
+
+Each of these operators has been integrated into **Payments Gate** to provide users with diverse and convenient payment options.
+
+## Authentication – API Key & Secret Key
+
+To access and use the **Payments Gate API**, clients must authenticate using an API Key and Secret Key, which are generated by the system during account or application registration.
+
+### 🔐 How Authentication Works
+
+- Upon registration, each client receives:
+  - **API Key** – public identifier used to make requests
+  - **Secret Key** – private credential used to sign requests
+
+- These credentials are required for every request to protected endpoints.
+
+
+### 🔧 Getting Your Keys
+
+1. Register or log into your account on the Payments Gate dashboard.
+2. Navigate to **Profiles -> Access Keys**.
+3. Look view your:
+   - `API_KEY`
+   - `SECRET_KEY`
+
+You should store these securely and never expose your Secret Key publicly.
+
+### 📡 Making Authenticated Requests
+
+All requests to the Payments Gate API must include:
+
+- `Headers: x-api-keys : <API_KEY>`
+
+## 🔐 Webhook Signature Verification
+
+Payments Gate sends webhook notifications to your backend when the transaction status changes. To ensure authenticity, each request includes a `signature` field – an HMAC-SHA256 hash created using your **Secret Key**.
+
+### ✅ How the Signature Is Generated
+
+The signature is calculated on the server side as follows:
+
+```php
+$status = 'SUCCESS';
+$transaction_uuid = 'abc-123-xyz';
+$merchantSecretKey = 'your-merchant-secret-key';
+
+$signature = hash_hmac('sha256', $status . $transaction_uuid, $merchantSecretKey);
+```
+
+## Getting Started
+
+1. **Clone the repository:**
+  ```bash
+  git clone https://github.com/lukaszwinicki/payments-gate
+  cd payments-gate
+  ```
+
+2. **Install dependencies:**
+  ```bash
+  composer install
+  npm install
+  ```
+
+3. **Set up environment:**
+  - Copy `.env.example` to `.env` and configure your environment variables.
+
+4. **Generate application key:**
+  ```bash
+  php artisan key:generate
+  ```
+   
+5. **Run migrations:**
+  ```bash
+  php artisan migrate
+  ```
+
+6. **Start the development server:**
+  ```bash
+  php artisan serve
+  ```
 
 ## License
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+This project is licensed under the MIT License.

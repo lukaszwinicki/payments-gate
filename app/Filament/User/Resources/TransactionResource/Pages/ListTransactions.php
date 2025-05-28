@@ -27,7 +27,8 @@ class ListTransactions extends ListRecords
         $collection = method_exists($records, 'getCollection') ? $records->getCollection() : $records;
 
         $collection = $collection->values()->map(function ($record, $index) use ($perPage, $page) {
-            $record->row_number = ($page - 1) * $perPage + $index + 1;
+            $rowNumber = ((int) $page - 1) * (int) $perPage + $index + 1;
+            $record->row_number = $rowNumber;
             return $record;
         });
 

@@ -1,11 +1,26 @@
 # Payments Gate
 
-
-## Overview
+## 📝 Overview
 
 Payments Gate is a robust and secure payment gateway solution designed to facilitate seamless online transactions. It provides APIs  for integrating payment processing into your applications or websites.
 
-## Features
+
+## 📑 Table of Contents
+
+- [📝 Overview](#overview)
+- [✨ Features](#features)
+- [🛠️ Technology Stack](#technology-stack)
+- [📚 API Documentation](#api-documentation)
+- [🚀 Live Demo](#live-demo)
+- [🔌 Payment Processor Integration](#payment-processor-integration)
+- [💳 Integrated Payment Providers](#integrated-payment-providers)
+- [🔐 API Authentication](#api-authentication)
+- [🔔 Webhook Mechanism](#webhook-mechanism)
+- [🏁 Getting Started](#getting-started)
+- [📄 License](#license)
+
+## ✨ Features
+
 
 - Secure payment processing
 - RESTful API for easy integration
@@ -13,8 +28,10 @@ Payments Gate is a robust and secure payment gateway solution designed to facili
 - Webhook support for real-time notifications
 - Detailed logging and error handling
 - Modular integration of payment processors via dedicated service classes
+
   
-## Technology Stack
+## 🛠️ Technology Stack
+
 
 - **Framework:** Laravel 12
 - **Authentication:** Laravel Breeze
@@ -23,17 +40,22 @@ Payments Gate is a robust and secure payment gateway solution designed to facili
 - **Database:** PostgreSQL / MySQL
 - **API:** RESTful, JSON-based
 
-## API Documentation
+
+## 📚 API Documentation
 
 Comprehensive API documentation is available online. Visit the following link to explore available endpoints, request/response formats, and integration guides:
 
-[API Documentation](https://payments-gate.onrender.com/api/documentation)
+👉 [API Documentation](https://payments-gate.onrender.com/api/documentation)
+
+
 
 ## 🚀 Live Demo
 
-[Click here to view the live application](https://payments-gate.onrender.com)
+👉 [Click here to view the live application](https://payments-gate.onrender.com)
 
-## 💳 Payment Processor Integration
+
+
+## 🔌 Payment Processor Integration
 
 Payments Gate supports seamless integration with multiple payment processors: **TPay**, **Paynow**, and **Noda**. Each processor is implemented as a dedicated service that adheres to a shared `PaymentMethodInterface`, enabling unified handling of transaction logic (create, confirm, refund) across providers.
 
@@ -46,26 +68,27 @@ interface PaymentMethodInterface
 }
 ```
 
-### 🧩 Architecture Overview
+## 🧩 Architecture Overview
 
 The integration uses the **Factory Pattern** to dynamically resolve the appropriate payment provider service based on the selected payment method:
 
 ```php
 public static function getInstanceByPaymentMethod(?PaymentMethod $paymentMethod): PaymentMethodInterface
-    {
-        return match ($paymentMethod) {
-            PaymentMethod::PAYMENT_METHOD_TPAY => App::make(TPayService::class),
-            PaymentMethod::PAYMENT_METHOD_PAYNOW => App::make(PaynowService::class),
-            PaymentMethod::PAYMENT_METHOD_NODA => App::make(NodaService::class),
-            default => throw new NotImplementedException("Payment method " . ($paymentMethod) . " is not implemented.")
-        };
-    }
+{
+    return match ($paymentMethod) {
+        PaymentMethod::PAYMENT_METHOD_TPAY => App::make(TPayService::class),
+        PaymentMethod::PAYMENT_METHOD_PAYNOW => App::make(PaynowService::class),
+        PaymentMethod::PAYMENT_METHOD_NODA => App::make(NodaService::class),
+        default => throw new NotImplementedException("Payment method " . ($paymentMethod) . " is not implemented.")
+    };
+}
 ```
+### ⚙️ Payment Processing & Webhook Notifications
 
 ![Architecture Diagram](https://i.imgur.com/y9qFipo.png)
 
 
-## 🧾 Integrated Payment Providers
+## 💳 Integrated Payment Providers
 
 Payments Gate integrates with three major payment providers. Below is a brief overview and links to their official documentation for deeper integration details.
 
@@ -109,7 +132,7 @@ To access and use the **Payments Gate API**, clients must authenticate using an 
 
 1. Register or log into your account on the Payments Gate dashboard.
 2. Navigate to **Profiles -> Access Keys**.
-3. Look view your:
+3. View your:
    - `API_KEY`
    - `SECRET_KEY`
 
@@ -120,6 +143,43 @@ You should store these securely and never expose your Secret Key publicly.
 All requests to the Payments Gate API must include:
 
 - `Headers: x-api-keys : <API_KEY>`
+
+### 🔁 Retry Policy
+
+If a webhook fails to deliver (i.e., the HTTP response code is not `200`), the system will retry sending it **every 1 minute**, for up to **10 attempts**.
+
+After **10 unsuccessful attempts**, the webhook will **no longer be retried**.
+
+## 🔔 Webhook Mechanism
+
+Our system supports webhook notifications that allow clients to automatically receive updates about the status of their transactions.
+
+### 📌 When are webhooks triggered?
+
+A webhook is automatically sent in the following scenarios:
+
+- ✅ When a transaction status changes (e.g., `SUCCESS`, `FAIL`, `REFUND_SUCCESS`, etc.).
+- 🔄 For refund transactions (`REFUND_PENDING`, `REFUND_SUCCESS`, `REFUND_FAIL`), after polling the status from an external service (e.g., Paynow).
+- 🚨 If a previous webhook delivery attempt failed, retries will be attempted every minute, up to **10 times**.
+
+### 🧾 Webhook Payload
+
+The webhook is sent as a `POST` request to the `notification_url` associated with the transaction.
+
+#### Example JSON payload:
+
+```json
+{
+  "signature": "fa7c8e27b6f3...",
+  "transaction_uuid": "abcd-1234-efgh-5678",
+  "amount": 199.99,
+  "name": "John Doe",
+  "email": "john@example.com",
+  "currency": "PLN",
+  "status": "SUCCESS",
+  "payment_method": "TPAY"
+}
+```
 
 ## 🔐 Webhook Signature Verification
 
@@ -137,7 +197,7 @@ $merchantSecretKey = 'your-merchant-secret-key';
 $signature = hash_hmac('sha256', $status . $transaction_uuid, $merchantSecretKey);
 ```
 
-## Getting Started
+## 🏁 Getting Started
 
 1. **Clone the repository:**
   ```bash
@@ -169,6 +229,6 @@ $signature = hash_hmac('sha256', $status . $transaction_uuid, $merchantSecretKey
   php artisan serve
   ```
 
-## License
+## 📄 License
 
 This project is licensed under the MIT License.

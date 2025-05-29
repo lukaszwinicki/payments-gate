@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y \
     libpng-dev \
     libjpeg-dev \
     libfreetype6-dev \
+    libicu-dev \
     locales \
     zip \
     jpegoptim optipng pngquant gifsicle \
@@ -18,9 +19,12 @@ RUN apt-get update && apt-get install -y \
     libpq-dev \
     libonig-dev \
     supervisor \
+    gnupg \
+    && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+    && apt-get install -y nodejs \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) gd \
-    && docker-php-ext-install pdo pdo_mysql pdo_pgsql mbstring zip exif pcntl
+    && docker-php-ext-install pdo pdo_mysql pdo_pgsql mbstring zip exif pcntl intl
 
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
@@ -34,6 +38,10 @@ RUN sed -i 's|/var/www/html|/var/www/public|g' /etc/apache2/sites-available/000-
     && a2enconf apache-stdout
 
 RUN composer install --no-dev --optimize-autoloader
+
+RUN npm install && npm run build
+
+RUN php artisan vendor:publish --tag=filament-assets --force
 
 RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache || true
 

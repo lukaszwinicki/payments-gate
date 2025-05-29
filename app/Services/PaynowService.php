@@ -5,7 +5,9 @@ namespace App\Services;
 use App\Dtos\ConfirmTransactionDto;
 use App\Dtos\CreateTransactionDto;
 use App\Dtos\RefundPaymentDto;
+use App\Enums\PaymentMethod;
 use App\Enums\TransactionStatus;
+use App\Exceptions\UnsupportedCurrencyException;
 use App\Models\Transaction;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
@@ -22,6 +24,16 @@ class PaynowService implements PaymentMethodInterface
     public function create(array $transactionBody): ?CreateTransactionDto
     {
         $uuid = (string) Str::uuid();
+        $currency = $transactionBody['currency'];
+        $paymentMethod = PaymentMethod::from($transactionBody['paymentMethod']);
+
+        if (!$paymentMethod->supportsCurrency($currency)) {
+            Log::error('[SERVICE][CREATE][TPAY][ERROR] Currency {$currency} is not supported by {$paymentMethod->value}.', [
+                'currency' => $currency,
+                'paymentMethod' => $paymentMethod,
+            ]);
+            throw new UnsupportedCurrencyException("Currency {$currency} is not supported by {$paymentMethod->value}.");
+        }
 
         Log::info('[SERVICE][CREATE][PAYNOW][START] Starting create process', [
             'uuid' => $uuid,

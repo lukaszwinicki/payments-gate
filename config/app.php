@@ -145,5 +145,7 @@ return [
         'apiKey' => env('NODA_API_KEY'),
         'signetureKey' => env('NODA_SIGNATURE_KEY'),
         'notificationUrl' => env('NODA_WEBHOOK_URL')
-    ]
+    ],
+
+    'api_docs_url' => env('API_DOCS_URL'),
 ];

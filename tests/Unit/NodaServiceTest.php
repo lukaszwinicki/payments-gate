@@ -6,6 +6,7 @@ use App\Dtos\ConfirmTransactionDto;
 use App\Dtos\CreateTransactionDto;
 use App\Enums\TransactionStatus;
 use App\Services\NodaService;
+use App\Exceptions\UnsupportedCurrencyException;
 use Tests\TestCase;
 use Illuminate\Support\Str;
 use Ramsey\Uuid\Uuid;
@@ -16,6 +17,28 @@ use GuzzleHttp\Psr7\Response;
 
 class NodaServiceTest extends TestCase
 {
+    public function test_throws_exception_when_currency_not_supported_by_payment_method(): void
+    {
+        $transactionBody = [
+            'amount' => 100,
+            'email' => 'test@example.com',
+            'currency' => 'PLN', 
+            'name' => 'Test User',
+            'paymentMethod' => 'NODA',
+        ];
+
+        $mock = new MockHandler([
+            new Response(500, [], ''),
+        ]);
+
+        $handlerStack = HandlerStack::create($mock);
+        $client = new Client(['handler' => $handlerStack]);
+        $paynowService = new NodaService($client);
+
+        $this->expectException(UnsupportedCurrencyException::class);
+        $this->expectExceptionMessage('Currency PLN is not supported by NODA.');
+        $paynowService->create($transactionBody);
+    }
     public function test_create_transaction_success(): void
     {
         Str::createUuidsUsing(fn() => Uuid::fromString('123e4567-e89b-12d3-a456-426614174000'));

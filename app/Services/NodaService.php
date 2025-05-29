@@ -5,8 +5,10 @@ namespace App\Services;
 use App\Dtos\ConfirmTransactionDto;
 use App\Dtos\CreateTransactionDto;
 use App\Dtos\RefundPaymentDto;
+use App\Enums\PaymentMethod;
 use App\Enums\TransactionStatus;
 use App\Exceptions\RefundNotSupportedException;
+use App\Exceptions\UnsupportedCurrencyException;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Support\Facades\Log;
@@ -21,6 +23,16 @@ class NodaService implements PaymentMethodInterface
     public function create(array $transactionBody): ?CreateTransactionDto
     {
         $uuid = (string) Str::uuid();
+        $currency = $transactionBody['currency'];
+        $paymentMethod = PaymentMethod::from($transactionBody['paymentMethod']);
+
+        if (!$paymentMethod->supportsCurrency($currency)) {
+            Log::error('[SERVICE][CREATE][TPAY][ERROR] Currency {$currency} is not supported by {$paymentMethod->value}.', [
+                'currency' => $currency,
+                'paymentMethod' => $paymentMethod,
+            ]);
+            throw new UnsupportedCurrencyException("Currency {$currency} is not supported by {$paymentMethod->value}.");
+        }
 
         Log::info('[SERVICE][CREATE][NODA][START] Starting create process', [
             'uuid' => $uuid,
@@ -88,7 +100,7 @@ class NodaService implements PaymentMethodInterface
 
         $signature = $webHookBody['Signature'];
         $calculatedSignatureFromWebhook = hash('sha256', $webHookBody['PaymentId'] . $webHookBody['Status'] . config('app.noda.signetureKey'));
-
+       
         if ($signature !== $calculatedSignatureFromWebhook) {
             Log::error('[SERVICE][CONFIRM][NODA][ERROR] Signature check failed', [
                 'receivedSignature' => $signature,

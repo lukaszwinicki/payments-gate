@@ -12,6 +12,7 @@
                     "Transactions"
                 ],
                 "summary": "Create new transaction",
+                "description": "Obsługiwane metody płatności: TPAY, PAYNOW, NODA.",
                 "operationId": "0b946754e09859751bb0d713cef1404d",
                 "requestBody": {
                     "required": true,
@@ -40,6 +41,11 @@
                                     },
                                     "paymentMethod": {
                                         "type": "string",
+                                        "enum": [
+                                            "TPAY",
+                                            "PAYNOW",
+                                            "NODA"
+                                        ],
                                         "example": "TPAY"
                                     },
                                     "notificationUrl": {

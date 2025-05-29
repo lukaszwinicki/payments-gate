@@ -3,12 +3,15 @@
 namespace App\Providers;
 
 use App\Services\CreateTransactionValidatorService;
+use App\Services\TPayService;
 use App\Services\NodaService;
 use App\Services\PaynowService;
 use App\Services\TPaySignatureValidator;
 use Illuminate\Support\ServiceProvider;
-use App\Services\TPayService;
+use Illuminate\Support\Facades\URL;
+use Illuminate\Http\Request;
 use GuzzleHttp\Client;
+
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -43,6 +46,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        if (config('app.env') === 'production') {
+            URL::forceScheme('https');
+        }
     }
 }

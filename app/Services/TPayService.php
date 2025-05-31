@@ -32,9 +32,9 @@ class TPayService implements PaymentMethodInterface
         $paymentMethod = PaymentMethod::from($transactionBody['paymentMethod']);
 
         if (!$this->isSupportCurrency($currency)) {
-            Log::error('[SERVICE][CREATE][TPAY][ERROR] Currency {$currency} is not supported by {$paymentMethod->value}.', [
+            Log::error("[SERVICE][CREATE][TPAY][ERROR] Currency {$currency} is not supported by {$paymentMethod->value}.", [
                 'currency' => $currency,
-                'paymentMethod' => $paymentMethod,
+                'paymentMethod' => $paymentMethod->value,
             ]);
             throw new UnsupportedCurrencyException("Currency {$currency} is not supported by {$paymentMethod->value}.");
         }

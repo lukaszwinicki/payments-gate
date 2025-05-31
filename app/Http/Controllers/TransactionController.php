@@ -92,7 +92,12 @@ class TransactionController extends Controller
         }
 
         $paymentService = PaymentMethodFactory::getInstanceByPaymentMethod(PaymentMethod::tryFrom($transactionBody['paymentMethod']));
-        $createTransactionDto = $paymentService->create($transactionBody);
+
+        try {
+            $createTransactionDto = $paymentService->create($transactionBody);
+        } catch (\App\Exceptions\UnsupportedCurrencyException $e) {
+            return response()->json(['error' => $e->getMessage()], 400);
+        }
 
         if ($createTransactionDto === null) {
             Log::error('[CONTROLLER][CREATE][ERROR] Payment service returned null for transaction creation', [

@@ -26,7 +26,7 @@ class NodaService implements PaymentMethodInterface
         $currency = $transactionBody['currency'];
         $paymentMethod = PaymentMethod::from($transactionBody['paymentMethod']);
 
-        if (!$paymentMethod->supportsCurrency($currency)) {
+        if (!$this->isSupportCurrency($currency)) {
             Log::error('[SERVICE][CREATE][TPAY][ERROR] Currency {$currency} is not supported by {$paymentMethod->value}.', [
                 'currency' => $currency,
                 'paymentMethod' => $paymentMethod,
@@ -100,7 +100,7 @@ class NodaService implements PaymentMethodInterface
 
         $signature = $webHookBody['Signature'];
         $calculatedSignatureFromWebhook = hash('sha256', $webHookBody['PaymentId'] . $webHookBody['Status'] . config('app.noda.signetureKey'));
-       
+
         if ($signature !== $calculatedSignatureFromWebhook) {
             Log::error('[SERVICE][CONFIRM][NODA][ERROR] Signature check failed', [
                 'receivedSignature' => $signature,
@@ -128,5 +128,14 @@ class NodaService implements PaymentMethodInterface
             'refundData' => $refund,
         ]);
         throw new RefundNotSupportedException('Refund is not supported for this payment method.');
+    }
+
+    public function isSupportCurrency(string $currency): bool
+    {
+        return match ($currency) {
+            'USD' => true,
+            'EUR' => true,
+            default => false,
+        };
     }
 }

@@ -29,7 +29,7 @@ class ProcessWebhookJob implements ShouldQueue
     {
         $client = new Client();
         $merchantSecretKey = Merchant::where('id', $this->transaction->merchant_id)->first();
-        $signature = hash_hmac('sha256', $this->transaction->status->value . $this->transaction->transaction_uuid, $merchantSecretKey->secret_key);
+        $signature = hash_hmac('sha256', $this->transaction->transaction_uuid . $this->transaction->payment_method->value, $merchantSecretKey->secret_key);
         $clientWebhookBody = [
             'signature' => $signature,
             'transaction_uuid' => $this->transaction->transaction_uuid,

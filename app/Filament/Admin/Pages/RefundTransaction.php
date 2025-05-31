@@ -53,7 +53,7 @@ class RefundTransaction extends Page implements Forms\Contracts\HasForms
                 ->title($json['success'])
                 ->body(<<<HTML
                         <div style="margin-top: 0.5rem;">
-                            <strong>UUID transakcji:</strong><br>
+                            <strong>Transaction UUID:</strong><br>
                                 {$uuid}       
                         </div>
                     HTML)

@@ -27,11 +27,11 @@ class TPayService implements PaymentMethodInterface
     public function create(array $transactionBody): ?CreateTransactionDto
     {
         $uuid = (string) Str::uuid();
-        
+
         $currency = $transactionBody['currency'];
         $paymentMethod = PaymentMethod::from($transactionBody['paymentMethod']);
 
-        if (!$paymentMethod->supportsCurrency($currency)) {
+        if (!$this->isSupportCurrency($currency)) {
             Log::error('[SERVICE][CREATE][TPAY][ERROR] Currency {$currency} is not supported by {$paymentMethod->value}.', [
                 'currency' => $currency,
                 'paymentMethod' => $paymentMethod,
@@ -223,5 +223,13 @@ class TPayService implements PaymentMethodInterface
             $accessToken = $this->getToken();
         }
         return $accessToken;
+    }
+
+    public function isSupportCurrency(string $currency): bool
+    {
+        return match ($currency) {
+            'PLN' => true,
+            default => false,
+        };
     }
 }

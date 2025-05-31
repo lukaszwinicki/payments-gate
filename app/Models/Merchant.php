@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Foundation\Auth\User as Authenticatable;
 
 /**
  * 
@@ -29,7 +29,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Merchant whereUpdatedAt($value)
  * @mixin \Eloquent
  */
-class Merchant extends Model
+class Merchant extends Authenticatable
 {
     use HasFactory;
     protected $fillable = [

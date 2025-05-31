@@ -27,7 +27,7 @@ class PaynowService implements PaymentMethodInterface
         $currency = $transactionBody['currency'];
         $paymentMethod = PaymentMethod::from($transactionBody['paymentMethod']);
 
-        if (!$paymentMethod->supportsCurrency($currency)) {
+        if (!$this->isSupportCurrency($currency)) {
             Log::error('[SERVICE][CREATE][TPAY][ERROR] Currency {$currency} is not supported by {$paymentMethod->value}.', [
                 'currency' => $currency,
                 'paymentMethod' => $paymentMethod,
@@ -211,5 +211,13 @@ class PaynowService implements PaymentMethodInterface
         ];
 
         return base64_encode(hash_hmac('sha256', json_encode($signatureBody), $signatureKey, true));
+    }
+
+    public function isSupportCurrency(string $currency): bool
+    {
+        return match ($currency) {
+            'PLN' => true,
+            default => false,
+        };
     }
 }

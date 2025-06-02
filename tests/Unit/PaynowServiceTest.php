@@ -34,7 +34,7 @@ class PaynowServiceTest extends TestCase
         $transactionBody = [
             'amount' => 100,
             'email' => 'test@example.com',
-            'currency' => 'USD', 
+            'currency' => 'USD',
             'name' => 'Test User',
             'paymentMethod' => 'PAYNOW',
         ];
@@ -159,7 +159,17 @@ class PaynowServiceTest extends TestCase
             'status' => TransactionStatus::SUCCESS,
         ]);
 
-        $paynowService = new PaynowService();
+        $mockResponse = new Response(201, ['Content-Type' => 'application/json'], json_encode([
+            'status' => 'FAIL',             
+            'refundId' => 'mocked-refund-id'
+        ]));
+
+        $mock = new MockHandler([$mockResponse]);
+        $handlerStack = HandlerStack::create($mock);
+        $mockClient = new Client(['handler' => $handlerStack]);
+
+        $paynowService = new PaynowService($mockClient);
+
         $confirmTransactionDto = $paynowService->refund($refundBody);
         $transaction = Transaction::where('transaction_uuid', $refundBody['transactionUuid'])->first();
         $this->assertNotNull($transaction);

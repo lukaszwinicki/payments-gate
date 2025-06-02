@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\PaymentMethod;
 use App\Enums\TransactionStatus;
+use App\Facades\TransactionSignatureFacade;
 use App\Factory\PaymentMethodFactory;
 use App\Jobs\ProcessWebhookJob;
 use App\Models\Merchant;
@@ -229,11 +230,11 @@ class TransactionController extends Controller
             return response()->json(['error' => 'Missing or invalid data.'], 400);
         }
 
-        if ($headers['signature'][0] !== $this->calculateSignature($transaction)) {
+        if ($headers['signature'][0] !== TransactionSignatureFacade::calculateSignature($transaction)) {
             Log::error('[CONTROLLER][REFUND][ERROR] Missing or invalid signature.', [
                 'transactionUuid' => $refundBody['transactionUuid'],
                 'signatureFromHeader' => $headers['signature'][0],
-                'calculatedSignature' => $this->calculateSignature($transaction)
+                'calculatedSignature' => TransactionSignatureFacade::calculateSignature($transaction)
             ]);
             return response()->json(['error' => 'Missing or invalid signature.'], 400);
         }
@@ -248,8 +249,31 @@ class TransactionController extends Controller
             'transactionUuid' => $refundBody['transactionUuid'],
         ]);
 
+        if ($transaction->status === TransactionStatus::REFUND_SUCCESS) {
+            Log::info('[CONTROLLER][REFUND][TRANSACTION][CHECK] Transaction has been successfully refunded.', [
+                'refundCode' => $transaction->refund_code,
+                'transactionUuid' => $transaction->transaction_uuid,
+            ]);
+            return response()->json(['error' => 'Transaction has been successfully refunded.'], 400);
+        }
+
+        if ($transaction->status === TransactionStatus::REFUND_PENDING) {
+            Log::info('[CONTROLLER][REFUND][TRANSACTION][CHECK] Transaction refund is in progress.', [
+                'refundCode' => $transaction->refund_code,
+                'transactionUuid' => $transaction->transaction_uuid,
+            ]);
+            return response()->json(['error' => 'Transaction refund is in progress.'], 400);
+        }
+
         $paymentService = PaymentMethodFactory::getInstanceByPaymentMethod($transaction->payment_method);
-        $refundPaymentDto = $paymentService->refund($refundBody);
+
+        try {
+            $refundPaymentDto = $paymentService->refund($refundBody);
+        } catch (\App\Exceptions\RefundNotSupportedException $e) {
+            return response()->json(['error' => $e->getMessage()], 400);
+        } catch (\App\Exceptions\UnexpectedStatusCodeException $e) {
+            return response()->json(['error' => $e->getMessage()], 400);
+        }
 
         if ($transaction && $refundPaymentDto !== null && $refundPaymentDto->status === TransactionStatus::REFUND_PENDING) {
             $transaction->status = TransactionStatus::REFUND_PENDING;
@@ -280,11 +304,5 @@ class TransactionController extends Controller
         ]);
 
         return response()->json(['success' => 'Refund', 'transactionUuid' => $transaction->transaction_uuid], 200);
-    }
-
-    public function calculateSignature(Transaction $transaction): string
-    {
-        $merchantSecretKey = Merchant::where('id', $transaction->merchant_id)->first();
-        return hash_hmac('sha256', $transaction->transaction_uuid . $transaction->payment_method->value, $merchantSecretKey->secret_key);
     }
 }

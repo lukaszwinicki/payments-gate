@@ -2,6 +2,8 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Facades\TransactionSignatureFacade;
+use App\Models\Transaction;
 use Filament\Pages\Page;
 use Filament\Forms;
 use Filament\Notifications\Notification;
@@ -40,9 +42,11 @@ class RefundTransaction extends Page implements Forms\Contracts\HasForms
     {
         $data = $this->form->getState();
         $apiKey = auth()->user()->merchant->api_key;
+        $transaction = Transaction::where('transaction_uuid', $data)->first();
 
         $response = Http::withHeaders([
             'X-API-KEY' => $apiKey,
+            'signature' => TransactionSignatureFacade::calculateSignature($transaction)
         ])->post(config('app.url') . '/api/refund-payment', $data);
 
         if ($response->successful()) {

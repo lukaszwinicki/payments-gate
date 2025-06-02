@@ -1,6 +1,7 @@
 <?php
 
 use App\Exceptions\RefundNotSupportedException;
+use App\Exceptions\UnexpectedStatusCodeException;
 use App\Exceptions\UnsupportedCurrencyException;
 use App\Http\Middleware\ApiKeyMiddleware;
 use Illuminate\Foundation\Application;
@@ -28,6 +29,12 @@ return Application::configure(basePath: dirname(__DIR__))
         });
 
         $exceptions->render(function (UnsupportedCurrencyException $e, Request $request) {
+            return response()->json([
+                'error' => $e->getMessage()
+            ], 400);
+        });
+
+        $exceptions->render(function (UnexpectedStatusCodeException $e, Request $request) {
             return response()->json([
                 'error' => $e->getMessage()
             ], 400);

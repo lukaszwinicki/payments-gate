@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Enums\PaymentMethod;
 use App\Enums\TransactionStatus;
+use App\Exceptions\RefundNotSupportedException;
+use App\Exceptions\UnexpectedStatusCodeException;
 use App\Facades\TransactionSignatureFacade;
 use App\Factory\PaymentMethodFactory;
 use App\Jobs\ProcessWebhookJob;
@@ -269,9 +271,7 @@ class TransactionController extends Controller
 
         try {
             $refundPaymentDto = $paymentService->refund($refundBody);
-        } catch (\App\Exceptions\RefundNotSupportedException $e) {
-            return response()->json(['error' => $e->getMessage()], 400);
-        } catch (\App\Exceptions\UnexpectedStatusCodeException $e) {
+        } catch (RefundNotSupportedException | UnexpectedStatusCodeException $e) {
             return response()->json(['error' => $e->getMessage()], 400);
         }
 

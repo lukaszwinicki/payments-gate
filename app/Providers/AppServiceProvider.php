@@ -7,9 +7,9 @@ use App\Services\TPayService;
 use App\Services\NodaService;
 use App\Services\PaynowService;
 use App\Services\TPaySignatureValidator;
+use App\Services\TransactionSignatureService;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\URL;
-use Illuminate\Http\Request;
 use GuzzleHttp\Client;
 
 
@@ -26,6 +26,10 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->singleton('tpay-signature-validator', function ($app) {
             return new TPaySignatureValidator();
+        });
+
+        $this->app->singleton('transaction-signature-service', function ($app) {
+            return new TransactionSignatureService();
         });
 
         $this->app->bind(TPayService::class, function () {

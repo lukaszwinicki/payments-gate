@@ -6,6 +6,7 @@ use App\Models\Merchant;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Illuminate\Support\Facades\Auth;
 
 class ApiKeyMiddleware
 {
@@ -16,12 +17,14 @@ class ApiKeyMiddleware
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $apiKeyHeader = $request->header('X-API-KEY');
-        $apiKeyMerchant = Merchant::where('api_key', $apiKeyHeader)->first();
+        $apiKey = $request->header('X-API-KEY');
+        $merchant = Merchant::where('api_key', $apiKey)->first();
 
-        if (!$apiKeyHeader || $apiKeyMerchant === null) {
+        if (!$apiKey || $merchant === null) {
             return response()->json(['error' => 'Unauthorized'], 401);
         }
+
+        Auth::login($merchant);
 
         return $next($request);
     }

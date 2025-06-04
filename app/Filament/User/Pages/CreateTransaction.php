@@ -94,7 +94,7 @@ class CreateTransaction extends Page implements Forms\Contracts\HasForms
 
             Notification::make()
                 ->title("Error: {$status}")
-                ->body("Failed to create transaction:: {$errorMessage}")
+                ->body("Failed to create transaction: {$errorMessage}")
                 ->danger()
                 ->persistent()
                 ->send();

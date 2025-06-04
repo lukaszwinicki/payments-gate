@@ -7,10 +7,13 @@ use App\Dtos\CreateTransactionDto;
 use App\Dtos\RefundPaymentDto;
 use App\Enums\PaymentMethod;
 use App\Enums\TransactionStatus;
+use App\Exceptions\UnexpectedStatusCodeException;
 use App\Exceptions\UnsupportedCurrencyException;
 use App\Models\Transaction;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
+use GuzzleHttp\Exception\RequestException;
+use GuzzleHttp\Exception\ClientException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use stdClass;
@@ -27,10 +30,10 @@ class PaynowService implements PaymentMethodInterface
         $currency = $transactionBody['currency'];
         $paymentMethod = PaymentMethod::from($transactionBody['paymentMethod']);
 
-        if (!$paymentMethod->supportsCurrency($currency)) {
-            Log::error('[SERVICE][CREATE][TPAY][ERROR] Currency {$currency} is not supported by {$paymentMethod->value}.', [
+        if (!$this->isSupportCurrency($currency)) {
+            Log::error("[SERVICE][CREATE][TPAY][ERROR] Currency {$currency} is not supported by {$paymentMethod->value}.", [
                 'currency' => $currency,
-                'paymentMethod' => $paymentMethod,
+                'paymentMethod' => $paymentMethod->value,
             ]);
             throw new UnsupportedCurrencyException("Currency {$currency} is not supported by {$paymentMethod->value}.");
         }
@@ -162,21 +165,39 @@ class PaynowService implements PaymentMethodInterface
                     'Idempotency-Key' => $uuid,
                 ],
                 'json' => $paynowRequestBody,
-                'http_errors' => false
             ]);
-        } catch (GuzzleException $e) {
-            Log::error('[SERVICE][REFUND][PAYNOW][ERROR] API request failed', [
-                'message' => $e->getMessage()
-            ]);
-            throw new \RuntimeException('Failed to refund payment');
-        }
 
-        if ($responseRefund->getStatusCode() !== 201) {
-            Log::error('[SERVICE][REFUND][PAYNOW][ERROR] Transaction refund failed - unexpected status code', [
-                'statusCode' => $responseRefund->getStatusCode(),
-                'responseBody' => $responseRefund->getBody()->getContents(),
+            if ($responseRefund->getStatusCode() !== 201) {
+                Log::error('[SERVICE][REFUND][PAYNOW][ERROR] Transaction refund failed - unexpected status code', [
+                    'statusCode' => $responseRefund->getStatusCode(),
+                    'responseBody' => $responseRefund->getBody()->getContents(),
+                ]);
+                throw new UnexpectedStatusCodeException('Unexpected status code: ' . $responseRefund->getStatusCode());
+            }
+
+        } catch (ClientException $e) {
+            $responseClientException = $e->getResponse();
+            $bodyClientException = $responseClientException?->getBody()?->getContents();
+
+            $decoded = json_decode($bodyClientException, true);
+
+            $errorMessage = $decoded['errors'][0]['message'] ?? 'Unknown error';
+            $errorType = $decoded['errors'][0]['errorType'] ?? 'UNKNOWN';
+
+            Log::error('[SERVICE][REFUND][PAYNOW][ERROR] Refund failed (ClientException)', [
+                'statusCode' => $responseClientException->getStatusCode(),
+                'errorType' => $errorType,
+                'message' => $errorMessage,
+                'rawBody' => $bodyClientException,
             ]);
-            return null;
+
+            throw new UnexpectedStatusCodeException($errorMessage);
+        } catch (RequestException $e) {
+            Log::error('[SERVICE][REFUND][PAYNOW][ERROR] Refund failed (RequestException)', [
+                'message' => $e->getMessage(),
+            ]);
+
+            throw new \RuntimeException('Failed to refund due to request error');
         }
 
         $responseBodyRefund = json_decode($responseRefund->getBody()->getContents(), true);
@@ -211,5 +232,13 @@ class PaynowService implements PaymentMethodInterface
         ];
 
         return base64_encode(hash_hmac('sha256', json_encode($signatureBody), $signatureKey, true));
+    }
+
+    public function isSupportCurrency(string $currency): bool
+    {
+        return match ($currency) {
+            'PLN' => true,
+            default => false,
+        };
     }
 }

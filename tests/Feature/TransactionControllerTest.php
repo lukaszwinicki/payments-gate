@@ -3,9 +3,11 @@
 namespace Tests\Feature;
 
 use App\Enums\TransactionStatus;
+use App\Facades\TransactionSignatureFacade;
 use App\Jobs\ProcessWebhookJob;
 use App\Models\Merchant;
 use App\Models\Transaction;
+use App\Models\User;
 use App\Services\NodaService;
 use App\Services\PaynowService;
 use App\Services\TPayService;
@@ -126,7 +128,7 @@ class TransactionControllerTest extends TestCase
         Transaction::factory()->create([
             'transaction_uuid' => $webHookBody['tr_crc']
         ]);
-    
+
         $uuid = $webHookBody['tr_crc'];
         $transaction = Transaction::where('transaction_uuid', $uuid)->first();
 
@@ -148,6 +150,25 @@ class TransactionControllerTest extends TestCase
         });
     }
 
+    public function test_refund_payment_missing_signature(): void
+    {
+        $refundBody = [
+            'transactionUuid' => 'test-refund-code'
+        ];
+
+        $headers = '';
+        Merchant::factory()->create();
+
+        $response = $this->withHeaders([
+            'x-api-key' => 'testowy-api-key',
+            'signature' => $headers
+        ])->post('/api/refund-payment', $refundBody);
+        $response->assertStatus(400);
+        $response->assertJson([
+            'error' => 'Missing or invalid data.'
+        ]);
+    }
+
     public function test_refund_payment_missing_transactionUuid(): void
     {
         $refundBody = [
@@ -162,6 +183,34 @@ class TransactionControllerTest extends TestCase
         $response->assertStatus(400);
         $response->assertJson([
             'error' => 'Missing or invalid data.'
+        ]);
+    }
+
+    public function test_refund_denied_by_gate_for_unauthorized_user(): void
+    {
+        $authorizedMerchant = Merchant::factory()->create();
+        $unauthorizedMerchant = Merchant::factory()->create([
+            'api_key' => 'testowy-api-key-2'
+        ]);
+
+        $transaction = Transaction::factory()->create([
+            'merchant_id' => $authorizedMerchant->id
+        ]);
+
+        $refundBody = [
+            'transactionUuid' => $transaction->transaction_uuid
+        ];
+
+        $this->actingAs($unauthorizedMerchant);
+
+        $response = $this->withHeaders([
+            'x-api-key' => 'testowy-api-key-2',
+            'signature' => TransactionSignatureFacade::calculateSignature($transaction)
+        ])->post('/api/refund-payment', $refundBody);
+
+        $response->assertStatus(403);
+        $response->assertJson([
+            'error' => 'Unauthorized to refund this transaction.'
         ]);
     }
 
@@ -197,18 +246,27 @@ class TransactionControllerTest extends TestCase
             'transactionUuid' => '470ea80c-3929-4ee7-964e-c9eb4ac422df'
         ];
 
-        Merchant::factory()->create();
+        Merchant::factory()->create([
+            'id' => 1,
+        ]);
+
+        User::factory()->create([
+            'merchant_id' => 1
+        ]);
+
         $transaction = Transaction::factory()->create([
             'transaction_uuid' => '470ea80c-3929-4ee7-964e-c9eb4ac422df',
-            'status' => TransactionStatus::REFUND_SUCCESS
+            'status' => TransactionStatus::REFUND_SUCCESS,
+            'merchant_id' => 1
         ]);
 
         $response = $this->withHeaders([
-            'x-api-key' => 'testowy-api-key'
+            'x-api-key' => 'testowy-api-key',
+            'signature' => TransactionSignatureFacade::calculateSignature($transaction)
         ])->post('/api/refund-payment', $refundBody);
-        $response->assertStatus(500);
+        $response->assertStatus(400);
         $response->assertJson([
-            'error' => 'Refund payment not completed.'
+            'error' => 'Transaction has been successfully refunded.'
         ]);
 
         $this->assertDatabaseHas('transactions', [
@@ -217,12 +275,53 @@ class TransactionControllerTest extends TestCase
         $this->assertEquals(TransactionStatus::REFUND_SUCCESS, $transaction->status);
     }
 
+    public function test_refund_payment_transaction_is_in_progress(): void
+    {
+        $refundBody = [
+            'transactionUuid' => '470ea80c-3929-4ee7-964e-c9eb4ac422df'
+        ];
+
+        Merchant::factory()->create([
+            'id' => 1,
+        ]);
+
+        User::factory()->create([
+            'merchant_id' => 1
+        ]);
+
+        $transaction = Transaction::factory()->create([
+            'transaction_uuid' => '470ea80c-3929-4ee7-964e-c9eb4ac422df',
+            'status' => TransactionStatus::REFUND_PENDING,
+            'merchant_id' => 1
+        ]);
+
+        $response = $this->withHeaders([
+            'x-api-key' => 'testowy-api-key',
+            'signature' => TransactionSignatureFacade::calculateSignature($transaction)
+        ])->post('/api/refund-payment', $refundBody);
+        $response->assertStatus(400);
+        $response->assertJson([
+            'error' => 'Transaction refund is in progress.'
+        ]);
+
+        $this->assertDatabaseHas('transactions', [
+            'transaction_uuid' => $transaction->transaction_uuid
+        ]);
+        $this->assertEquals(TransactionStatus::REFUND_PENDING, $transaction->status);
+    }
+
     #[DataProvider('refundTransactionIsSuccessProvider')]
     public function test_refund_payment_is_success(string $uuid, array $factoryBody, $mockResponse, $serviceClass, $refundBody): void
     {
+        Merchant::factory()->create([
+            'id' => 1,
+        ]);
 
-        Merchant::factory()->create();
-        Transaction::factory()->create($factoryBody);
+        User::factory()->create([
+            'merchant_id' => 1
+        ]);
+
+        $transaction = Transaction::factory()->create($factoryBody);
 
         $mock = new MockHandler($mockResponse);
 
@@ -235,7 +334,8 @@ class TransactionControllerTest extends TestCase
         Queue::fake();
 
         $response = $this->withHeaders([
-            'x-api-key' => 'testowy-api-key'
+            'x-api-key' => 'testowy-api-key',
+            'signature' => TransactionSignatureFacade::calculateSignature($transaction)
         ])->post('/api/refund-payment', $refundBody);
         $response->assertStatus(200);
         $response->assertJson([
@@ -515,7 +615,8 @@ class TransactionControllerTest extends TestCase
                 '470ea80c-3929-4ee7-964e-c9eb4ac422df',
                 [
                     'transaction_uuid' => '470ea80c-3929-4ee7-964e-c9eb4ac422df',
-                    'payment_method' => 'TPAY'
+                    'payment_method' => 'TPAY',
+                    'merchant_id' => 1
                 ],
                 [
                     new Response(200, [], json_encode(['access_token' => 'mock-token'])),
@@ -530,7 +631,8 @@ class TransactionControllerTest extends TestCase
                 '470ea80c-3929-4ee7-964e-c9eb4ac422df',
                 [
                     'transaction_uuid' => '470ea80c-3929-4ee7-964e-c9eb4ac422df',
-                    'payment_method' => 'PAYNOW'
+                    'payment_method' => 'PAYNOW',
+                    'merchant_id' => 1
                 ],
                 [
                     new Response(201, [], json_encode(['refundId' => '12345', 'status' => 'PENDING'])),

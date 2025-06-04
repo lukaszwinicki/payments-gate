@@ -25,7 +25,7 @@ class Notifications extends Page implements HasTable
                 Tables\Columns\TextColumn::make('id')->label('ID'),
                 Tables\Columns\TextColumn::make('transaction_id')->label('ID transaction'),
                 Tables\Columns\TextColumn::make('status')
-                    ->label('Status transaction')
+                    ->label('Status notification')
                     ->color(fn($state) => match ($state) {
                         TransactionStatus::SUCCESS, TransactionStatus::REFUND_SUCCESS => 'success',
                         TransactionStatus::PENDING, TransactionStatus::REFUND_PENDING => 'info',
@@ -33,7 +33,7 @@ class Notifications extends Page implements HasTable
                         default => null,
                     }),
                 Tables\Columns\TextColumn::make('type_status')
-                    ->label('Status notification')
+                    ->label('Status transaction')
                     ->color(fn($state) => match ($state) {
                         TransactionStatus::SUCCESS, TransactionStatus::REFUND_SUCCESS => 'success',
                         TransactionStatus::PENDING, TransactionStatus::REFUND_PENDING => 'info',

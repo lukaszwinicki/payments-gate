@@ -39,6 +39,10 @@
                                         "type": "string",
                                         "example": "Jan Kowalski"
                                     },
+                                    "currency": {
+                                        "type": "string",
+                                        "example": "PLN"
+                                    },
                                     "paymentMethod": {
                                         "type": "string",
                                         "enum": [
@@ -105,6 +109,18 @@
                 ],
                 "summary": "Refund payment",
                 "operationId": "58f3d9871ca37f979a5dee7bd8c7f5e3",
+                "parameters": [
+                    {
+                        "name": "signature",
+                        "in": "header",
+                        "description": "HMAC signature of the request body",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "example": "0798f264-f887-4102-b0ce-9d27e3076cc5"
+                        }
+                    }
+                ],
                 "requestBody": {
                     "required": true,
                     "content": {
@@ -176,7 +192,7 @@
             "api_key": {
                 "type": "apiKey",
                 "description": "Wprowadź swój klucz API",
-                "name": "X-API-Key",
+                "name": "X-API-KEY",
                 "in": "header"
             }
         }

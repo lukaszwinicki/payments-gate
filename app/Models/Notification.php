@@ -13,9 +13,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $id
  * @property int $transaction_id
  * @property TransactionStatus $status
- * @property TransactionStatus $type_status
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property TransactionStatus $type_status
  * @property-read \App\Models\Transaction $transaction
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Notification newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Notification newQuery()

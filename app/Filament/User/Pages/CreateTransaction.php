@@ -45,6 +45,7 @@ class CreateTransaction extends Page implements Forms\Contracts\HasForms
                 ])
                 ->required(),
             Forms\Components\TextInput::make('notificationUrl')->required(),
+            Forms\Components\TextInput::make('returnUrl')->required(),
         ];
     }
 

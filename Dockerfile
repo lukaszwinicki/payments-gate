@@ -50,6 +50,7 @@ RUN sed -i 's|/var/www/html|/var/www/public|g' /etc/apache2/sites-available/000-
     && a2enconf apache-stdout
 
 RUN composer install --no-dev --optimize-autoloader \
+    && php artisan key:generate \
     && php artisan config:cache \
     && php artisan route:cache \
     && php artisan view:cache \

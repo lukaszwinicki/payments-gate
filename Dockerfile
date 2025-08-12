@@ -21,7 +21,7 @@ RUN apt-get update && apt-get install -y \
     supervisor \
     gnupg \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y nodejs=20.19.1-deb-1nodesource1
+    && apt-get install -y nodejs=20.19.1-deb-1nodesource1 \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) gd \
     && docker-php-ext-install pdo pdo_mysql pdo_pgsql mbstring zip exif pcntl intl

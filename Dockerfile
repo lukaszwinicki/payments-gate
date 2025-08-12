@@ -51,8 +51,6 @@ RUN sed -i 's|/var/www/html|/var/www/public|g' /etc/apache2/sites-available/000-
 
 RUN composer install --no-dev --optimize-autoloader
 
-RUN npm install && npm run build
-
 RUN php artisan vendor:publish --tag=filament-assets --force
 
 RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache || true

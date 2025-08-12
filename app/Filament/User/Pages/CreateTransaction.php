@@ -24,6 +24,7 @@ class CreateTransaction extends Page implements Forms\Contracts\HasForms
     public $currency;
     public $paymentMethod;
     public $notificationUrl;
+    public $returnUrl;
 
     public function mount(): void
     {

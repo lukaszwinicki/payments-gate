@@ -49,13 +49,13 @@ RUN sed -i 's|/var/www/html|/var/www/public|g' /etc/apache2/sites-available/000-
     && a2enmod rewrite \
     && a2enconf apache-stdout
 
-RUN composer install --no-dev --optimize-autoloader \
-    && php artisan key:generate \
-    && php artisan config:cache \
-    && php artisan route:cache \
-    && php artisan view:cache \
-    && php artisan vendor:publish --tag=filament-assets --force \
-    && chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
+RUN composer install --no-dev --optimize-autoloader
+
+RUN npm install && npm run build
+
+RUN php artisan vendor:publish --tag=filament-assets --force
+
+RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache || true
 
 COPY supervisord.conf /etc/supervisord.conf
 

@@ -57,8 +57,8 @@ class TPayService implements PaymentMethodInterface
             ],
             'callbacks' => [
                 'payerUrls' => [
-                    'success' => config('app.returnUrl') . "payment-status?transaction_uuid={$uuid}",
-                    'error' => config('app.returnUrl') . "payment-status?transaction_uuid={$uuid}",
+                    'success' => config('app.returnUrl') . "/payment-status?transaction_uuid={$uuid}",
+                    'error' => config('app.returnUrl') . "/payment-status?transaction_uuid={$uuid}",
                 ],
                 'notification' => [
                     'url' => config('app.url') . '/api/confirm-transaction?payment-method=' . $transactionBody['paymentMethod']

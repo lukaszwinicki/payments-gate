@@ -46,7 +46,7 @@ class NodaService implements PaymentMethodInterface
             'amount' => $transactionBody['amount'],
             'currency' => $transactionBody['currency'],
             'webhookUrl' => config('app.noda.notificationUrl') . '/api/confirm-transaction?payment-method=' . $transactionBody['paymentMethod'],
-            'returnUrl' => config('app.returnUrl') . "payment-status?transaction_uuid={$uuid}",
+            'returnUrl' => config('app.returnUrl') . "/payment-status?transaction_uuid={$uuid}",
             'paymentId' => $uuid,
             'description' => $uuid,
             'email' => $transactionBody['email'],

@@ -53,7 +53,7 @@ class PaynowService implements PaymentMethodInterface
             ],
             'description' => $uuid,
             'externalId' => $uuid,
-            'continueUrl' => config('app.returnUrl') . "payment-status?transaction_uuid={$uuid}",
+            'continueUrl' => config('app.returnUrl') . "/payment-status?transaction_uuid={$uuid}",
         ];
         
         $paynowPayload = json_encode($paynowRequestBody, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);

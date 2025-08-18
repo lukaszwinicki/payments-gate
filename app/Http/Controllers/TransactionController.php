@@ -12,6 +12,7 @@ use App\Jobs\ProcessWebhookJob;
 use App\Models\Merchant;
 use App\Models\Transaction;
 use App\Services\CreateTransactionValidatorService;
+use App\Services\PaymentStatusService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -23,8 +24,11 @@ class TransactionController extends Controller
 {
     use AuthorizesRequests;
 
-    public function __construct(private CreateTransactionValidatorService $validator)
-    {
+    public function __construct
+    (
+        private CreateTransactionValidatorService $validator,
+        protected PaymentStatusService $paymentStatusService
+    ) {
     }
 
     #[OA\Post(
@@ -121,6 +125,7 @@ class TransactionController extends Controller
         $transaction->currency = $createTransactionDto->currency;
         $transaction->status = TransactionStatus::PENDING;
         $transaction->notification_url = $transactionBody['notificationUrl'];
+        $transaction->return_url = $transactionBody['returnUrl'];
         $transaction->payment_method = $transactionBody['paymentMethod'];
         $transaction->save();
 
@@ -304,5 +309,18 @@ class TransactionController extends Controller
         ]);
 
         return response()->json(['success' => 'Refund', 'transactionUuid' => $transaction->transaction_uuid], 200);
+    }
+
+    public function getStatus(string $uuid): JsonResponse
+    {
+        $status = $this->paymentStatusService->getStatusByUuid($uuid);
+
+        if (!$status) {
+            return response()->json([
+                'message' => 'Transaction not found',
+            ], 404);
+        }
+
+        return response()->json($status);
     }
 }

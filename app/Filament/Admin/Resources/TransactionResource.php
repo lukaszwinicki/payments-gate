@@ -50,6 +50,7 @@ class TransactionResource extends Resource
                         PaymentMethod::PAYMENT_METHOD_NODA->value => 'NODA',
                     ])->required(),
                 Forms\Components\TextInput::make('notification_url')->required(),
+                Forms\Components\TextInput::make('return_url')->required(),
             ]);
     }
     public static function table(Table $table): Table
@@ -80,8 +81,9 @@ class TransactionResource extends Resource
                         'danger' => TransactionStatus::FAIL,
                         default => ucfirst($state->value),
                     }),
-                Tables\Columns\TextColumn::make('payment_method')->label('Metoda'),
+                Tables\Columns\TextColumn::make('payment_method')->label('Method'),
                 Tables\Columns\TextColumn::make('notification_url')->label('Webhook')->copyable()->sortable()->searchable(),
+                Tables\Columns\TextColumn::make('return_url')->label('Return URL')->copyable()->sortable()->searchable(),
                 Tables\Columns\TextColumn::make('created_at')->sortable()->searchable()->label('Date')->since(),
             ])
             ->actions([

@@ -15,7 +15,8 @@ class CreateTransactionValidatorService
             'name' => 'required|string|max:255',
             'currency' => 'required|string|max:3',
             'paymentMethod' => 'required|string',
-            'notificationUrl' => 'required|string|url'
+            'notificationUrl' => 'required|string|url',
+            'returnUrl' => 'required|string|url'
         ];
 
         $validator = Validator::make($transactionBody, $rules);

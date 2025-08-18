@@ -24,6 +24,7 @@ class CreateTransaction extends Page implements Forms\Contracts\HasForms
     public $currency;
     public $paymentMethod;
     public $notificationUrl;
+    public $returnUrl;
 
     public function mount(): void
     {
@@ -45,6 +46,7 @@ class CreateTransaction extends Page implements Forms\Contracts\HasForms
                 ])
                 ->required(),
             Forms\Components\TextInput::make('notificationUrl')->required(),
+            Forms\Components\TextInput::make('returnUrl')->required(),
         ];
     }
 
@@ -91,6 +93,18 @@ class CreateTransaction extends Page implements Forms\Contracts\HasForms
         } else {
             $status = $response->status();
             $errorMessage = $response->json('error') ?? $response->body();
+
+            if (is_array($errorMessage)) {
+                $errorText = "Failed to create transaction:\n";
+                foreach ($errorMessage as $fieldErrors) {
+                    foreach ((array) $fieldErrors as $error) {
+                        $errorText .= "{$error}\n";
+                    }
+                }
+                $errorMessage = $errorText;
+            } else {
+                $errorMessage = "Failed to create transaction: {$errorMessage}";
+            }
 
             Notification::make()
                 ->title("Error: {$status}")

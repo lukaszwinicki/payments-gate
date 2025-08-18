@@ -9,3 +9,4 @@ Route::middleware('api-key')->group(function () {
 });
 
 Route::post('/confirm-transaction', [TransactionController::class, 'confirmTransaction']);
+Route::get('/transactions/{uuid}/status', [TransactionController::class, 'getStatus']);

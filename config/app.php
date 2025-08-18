@@ -148,4 +148,5 @@ return [
     ],
 
     'api_docs_url' => env('API_DOCS_URL'),
+    'returnUrl' => env('RETURN_URL')
 ];

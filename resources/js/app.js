@@ -1,7 +1,17 @@
-import './bootstrap';
+import { createApp } from 'vue';
+import { createRouter, createWebHistory } from 'vue-router';
+import PaymentStatus from './components/PaymentStatus.vue';
+import App from './App.vue';
 
-import Alpine from 'alpinejs';
+const routes = [
+  { path: '/payment-status', component: PaymentStatus }
+];
 
-window.Alpine = Alpine;
+const router = createRouter({
+  history: createWebHistory(),
+  routes,
+});
 
-Alpine.start();
+const app = createApp(App);
+app.use(router);
+app.mount('#app');

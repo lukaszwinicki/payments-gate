@@ -9,3 +9,7 @@ Route::get('/', function () {
 });
 
 require __DIR__.'/auth.php';
+
+Route::get('/payment-status', function () {
+    return view('payment-status');
+});

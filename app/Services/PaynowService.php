@@ -53,7 +53,10 @@ class PaynowService implements PaymentMethodInterface
             ],
             'description' => $uuid,
             'externalId' => $uuid,
+            'continueUrl' => config('app.returnUrl') . "/payment-status?transaction_uuid={$uuid}",
         ];
+        
+        $paynowPayload = json_encode($paynowRequestBody, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
         try {
             $createTransaction = $this->client->request('POST', config('app.paynow.sandboxApiUrl') . '/payments', [
@@ -61,10 +64,10 @@ class PaynowService implements PaymentMethodInterface
                     'Content-Type' => 'application/json',
                     'Accept' => 'application/json',
                     'Api-Key' => config('app.paynow.apiKey'),
-                    'Signature' => $this->calculatedSignature($paynowRequestBody, $uuid),
+                    'Signature' => $this->calculatedSignature($paynowPayload, $uuid),
                     'Idempotency-Key' => $uuid,
                 ],
-                'json' => $paynowRequestBody,
+                'body' => $paynowPayload,
                 'http_errors' => false
             ]);
         } catch (GuzzleException $e) {
@@ -161,7 +164,7 @@ class PaynowService implements PaymentMethodInterface
                     'Content-Type' => 'application/json',
                     'Accept' => 'application/json',
                     'Api-Key' => config('app.paynow.apiKey'),
-                    'Signature' => $this->calculatedSignature($paynowRequestBody, $uuid),
+                    'Signature' => $this->calculatedSignature(json_encode($paynowRequestBody), $uuid),
                     'Idempotency-Key' => $uuid,
                 ],
                 'json' => $paynowRequestBody,
@@ -217,7 +220,7 @@ class PaynowService implements PaymentMethodInterface
         return null;
     }
 
-    public function calculatedSignature(array $body, string $uuid): string
+    public function calculatedSignature(string $body, string $uuid): string
     {
         $apiKey = config('app.paynow.apiKey');
         $signatureKey = config('app.paynow.signatureKey');
@@ -228,10 +231,9 @@ class PaynowService implements PaymentMethodInterface
                 'Idempotency-Key' => $uuid
             ],
             'parameters' => new stdClass,
-            'body' => json_encode($body)
+            'body' => $body
         ];
-
-        return base64_encode(hash_hmac('sha256', json_encode($signatureBody), $signatureKey, true));
+        return base64_encode(hash_hmac('sha256', json_encode($signatureBody, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), $signatureKey, true));
     }
 
     public function isSupportCurrency(string $currency): bool

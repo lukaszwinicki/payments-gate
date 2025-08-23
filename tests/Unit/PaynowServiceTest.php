@@ -204,7 +204,7 @@ class PaynowServiceTest extends TestCase
         ));
 
         $paynowService = new PaynowService();
-        $signature = $paynowService->calculatedSignature($body, $uuid);
+        $signature = $paynowService->calculatedSignature(json_encode($body), $uuid);
         $this->assertEquals($expectedHash, $signature);
     }
 

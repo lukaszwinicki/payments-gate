@@ -16,8 +16,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $id
  * @property string $transaction_uuid
  * @property string $transactions_id
- * @property int $merchant_id
- * @property string|null $refund_code
  * @property string $amount
  * @property string $name
  * @property string $email
@@ -27,6 +25,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property PaymentMethod $payment_method
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property int $merchant_id
+ * @property string|null $refund_code
+ * @property string|null $return_url
  * @property-read \App\Models\Merchant $merchant
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Notification> $notifications
  * @property-read int|null $notifications_count
@@ -44,6 +45,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereNotificationUrl($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction wherePaymentMethod($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereRefundCode($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereReturnUrl($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereStatus($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereTransactionUuid($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereTransactionsId($value)
@@ -64,6 +66,7 @@ class Transaction extends Model
         'currency',
         'status',
         'notification_url',
+        'return_url',
         'payment_method'
     ];
 

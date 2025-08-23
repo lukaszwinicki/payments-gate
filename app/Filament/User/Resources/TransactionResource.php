@@ -56,6 +56,7 @@ class TransactionResource extends Resource
                     }),
                 Tables\Columns\TextColumn::make('payment_method')->label('Metoda'),
                 Tables\Columns\TextColumn::make('notification_url')->label('Notification URL')->copyable()->sortable()->searchable(),
+                Tables\Columns\TextColumn::make('return_url')->label('Return URL')->copyable()->sortable()->searchable(),
                 Tables\Columns\TextColumn::make('created_at')->sortable()->searchable()->label('Date')->since(),
             ]);
     }

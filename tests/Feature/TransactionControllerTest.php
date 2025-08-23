@@ -391,6 +391,7 @@ class TransactionControllerTest extends TestCase
                     'name' => 'Jan Kowalski',
                     'currency' => 'PLN',
                     'paymentMethod' => 'TPAY',
+                    'returnUrl' => 'https://test.com',
                     'notificationUrl' => 'https://notification.url'
                 ],
                 TPayService::class,
@@ -406,6 +407,7 @@ class TransactionControllerTest extends TestCase
                     'name' => 'Jan Kowalski',
                     'currency' => 'PLN',
                     'paymentMethod' => 'PAYNOW',
+                    'returnUrl' => 'https://test.com',
                     'notificationUrl' => 'https://notification.url'
                 ],
                 PaynowService::class,
@@ -420,6 +422,7 @@ class TransactionControllerTest extends TestCase
                     'name' => 'Jan Kowalski',
                     'currency' => 'USD',
                     'paymentMethod' => 'NODA',
+                    'returnUrl' => 'https://test.com',
                     'notificationUrl' => 'https://notification.url'
                 ],
                 NodaService::class,
@@ -441,6 +444,7 @@ class TransactionControllerTest extends TestCase
                     'name' => 'Jan Kowalski',
                     'currency' => 'PLN',
                     'paymentMethod' => 'TPAY',
+                    'returnUrl' => 'https://test.com',
                     'notificationUrl' => 'https://notification.url',
                 ],
                 [
@@ -483,6 +487,7 @@ class TransactionControllerTest extends TestCase
                     'name' => 'Jan Kowalski',
                     'currency' => 'PLN',
                     'paymentMethod' => 'PAYNOW',
+                    'returnUrl' => 'https://test.com',
                     'notificationUrl' => 'https://notification.url',
                 ],
                 [
@@ -508,6 +513,7 @@ class TransactionControllerTest extends TestCase
                     'name' => 'Jan Kowalski',
                     'currency' => 'USD',
                     'paymentMethod' => 'NODA',
+                    'returnUrl' => 'https://test.com',
                     'notificationUrl' => 'https://notification.url',
                 ],
                 [

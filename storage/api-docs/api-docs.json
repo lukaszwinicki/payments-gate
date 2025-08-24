@@ -24,7 +24,8 @@
                                     "email",
                                     "name",
                                     "paymentMethod",
-                                    "notificationUrl"
+                                    "notificationUrl",
+                                    "returnUrl"
                                 ],
                                 "properties": {
                                     "amount": {
@@ -55,6 +56,10 @@
                                     "notificationUrl": {
                                         "type": "string",
                                         "example": "https://test.payment-gate.pl/callback"
+                                    },
+                                    "returnUrl": {
+                                        "type": "string",
+                                        "example": "https://test.payment-gate.pl/return-url"
                                     }
                                 },
                                 "type": "object"

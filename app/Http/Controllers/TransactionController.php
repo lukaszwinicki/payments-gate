@@ -52,6 +52,7 @@ class TransactionController extends Controller
                         enum: ["TPAY", "PAYNOW", "NODA"],
                     ),
                     new OA\Property(property: "notificationUrl", type: "string", example: "https://test.payment-gate.pl/callback"),
+                    new OA\Property(property: "returnUrl", type: "string", example: "https://test.payment-gate.pl/return-url"),
                 ]
             )
         ),

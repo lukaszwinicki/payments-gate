@@ -39,7 +39,7 @@ class TransactionController extends Controller
         requestBody: new OA\RequestBody(
             required: true,
             content: new OA\JsonContent(
-                required: ["amount", "email", "name", "paymentMethod", "notificationUrl"],
+                required: ["amount", "email", "name", "paymentMethod", "notificationUrl", "returnUrl"],
                 properties: [
                     new OA\Property(property: "amount", type: "string", example: "12.34"),
                     new OA\Property(property: "email", type: "string", example: "jan.kowalski@gmail.com"),

@@ -10,7 +10,7 @@ use stdClass;
 
 class PaynowRefundStatusService
 {
-    public static function getRefundPaymentStatus(string $refundCode, Client $client = null, $uuid = null): ?string
+    public static function getRefundPaymentStatus(string $refundCode, Client $client = null, string $uuid = null): ?string
     {
         $uuid = $uuid ?? Uuid::uuid4()->toString();
         $client = $client ?? new Client();

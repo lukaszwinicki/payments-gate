@@ -118,7 +118,7 @@ class TransactionController extends Controller
 
         $transaction = new Transaction();
         $transaction->transaction_uuid = $createTransactionDto->uuid;
-        $transaction->transactions_id = $createTransactionDto->transactionId;
+        $transaction->transaction_id = $createTransactionDto->transactionId;
         $transaction->merchant_id = $merchantId->id;
         $transaction->amount = $createTransactionDto->amount;
         $transaction->name = $createTransactionDto->name;

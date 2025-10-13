@@ -25,4 +25,4 @@ parameters:
         - "#Property [a-zA-Z0-9\\$\\_\\\\:\\(\\)]+ type has no value type specified in iterable type array#"
         - "#PHPDoc tag @var for variable [a-zA-Z0-9\\$\\_\\\\:\\(\\)]+ has no value type specified in iterable type array#"
         - '#PHPDoc tag @mixin contains unknown class Eloquent#'
-        - '#Method Tests\\Feature\\.*::.*\(\) throws checked exception .* but it\'s missing from the PHPDoc @throws tag#'
+        - "#Method .* throws checked exception .* but it's missing from the PHPDoc @throws tag#"

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\PaymentLinkController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -8,7 +9,7 @@ Route::get('/', function () {
         : redirect()->route('login');
 });
 
-require __DIR__.'/auth.php';
+require __DIR__ . '/auth.php';
 
 Route::get('/payment-status', function () {
     return view('payment-status');

@@ -4,7 +4,7 @@ namespace App\Dtos;
 
 use DateTimeImmutable;
 
-class CreatePaymentLinkDto
+readonly class CreatePaymentLinkDto
 {
     public function __construct(
         public string $paymentLinkId,
@@ -12,7 +12,8 @@ class CreatePaymentLinkDto
         public string $currency,
         public string $notificationUrl,
         public string $returnUrl,
-        public DateTimeImmutable $expiresAt
+        public DateTimeImmutable $expiresAt,
+        public int $merchantId
     ) {
     }
 }

@@ -152,7 +152,7 @@ class TPayService implements PaymentMethodInterface
         }
 
         try {
-            $responseRefund = $this->client->request('POST', config('app.tpay.openApiUrl') . '/transactions/' . $transaction?->transactions_id . '/refunds', [
+            $responseRefund = $this->client->request('POST', config('app.tpay.openApiUrl') . '/transactions/' . $transaction?->transaction_id . '/refunds', [
                 'headers' => [
                     'authorization' => 'Bearer ' . $this->accessToken(),
                 ],

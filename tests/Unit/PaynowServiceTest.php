@@ -154,7 +154,7 @@ class PaynowServiceTest extends TestCase
 
         $transaction = Transaction::factory()->create([
             'transaction_uuid' => 'valid-uuid',
-            'transactions_id' => 12345,
+            'transaction_id' => 12345,
             'amount' => 10,
             'status' => TransactionStatus::SUCCESS,
         ]);

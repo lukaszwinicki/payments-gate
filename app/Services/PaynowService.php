@@ -159,7 +159,7 @@ class PaynowService implements PaymentMethodInterface
                 'amount' => $transaction->amount * 100,
             ];
 
-            $responseRefund = $this->client->request('POST', config('app.paynow.sandboxApiUrl') . '/payments/' . $transaction->transactions_id . '/refunds', [
+            $responseRefund = $this->client->request('POST', config('app.paynow.sandboxApiUrl') . '/payments/' . $transaction->transaction_id . '/refunds', [
                 'headers' => [
                     'Content-Type' => 'application/json',
                     'Accept' => 'application/json',

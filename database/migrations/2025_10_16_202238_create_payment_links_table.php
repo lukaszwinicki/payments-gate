@@ -4,7 +4,8 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration {
+return new class extends Migration
+{
     /**
      * Run the migrations.
      */
@@ -13,9 +14,15 @@ return new class extends Migration {
         Schema::create('payment_links', function (Blueprint $table) {
             $table->id();
             $table->uuid('payment_link_id');
-            $table->foreignId('transaction_id')
-                  ->constrained('transactions')
-                  ->onDelete('cascade');
+            $table
+                ->foreignId('transaction_id')
+                ->nullable()
+                ->constrained('transactions')
+                ->onDelete('cascade');
+            $table
+                ->foreignId('merchant_id')
+                ->constrained('merchants')
+                ->onDelete('cascade');
             $table->decimal('amount', 10, 2);
             $table->string('currency');
             $table->string('notification_url');

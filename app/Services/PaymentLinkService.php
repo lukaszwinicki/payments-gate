@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Dtos\CreatePaymentLinkDto;
+use App\Models\Merchant;
 use App\Models\PaymentLink;
 use DateTimeImmutable;
 use Illuminate\Support\Carbon;
@@ -11,11 +12,18 @@ use Illuminate\Support\Facades\Log;
 
 class PaymentLinkService
 {
-    public function create(array $paymentLinkBody): ?CreatePaymentLinkDto
+    public function create(array $paymentLinkBody, array $apiKeyHeader): ?CreatePaymentLinkDto
     {
-
         $uuid = (string) Str::uuid();
-        $expires_at = new DateTimeImmutable('+2 hours');
+        $expiresAt = new DateTimeImmutable('+2 hours');
+        $merchant = Merchant::where('api_key', $apiKeyHeader['x-api-key'][0])->first();
+
+        if (!$merchant) {
+            Log::error('[SERVICE][CREATE][PAYMENT-LINK][ERROR] Merchant not found', [
+                'api_key' => $apiKeyHeader['x-api-key'][0],
+            ]);
+            return null;
+        }
 
         Log::info('[SERVICE][CREATE][PAYMENT-LINK][START] Starting create process', [
             'payment_link_id' => $uuid,
@@ -23,7 +31,7 @@ class PaymentLinkService
             'currency' => $paymentLinkBody['currency'],
             'notification_url' => $paymentLinkBody['notificationUrl'],
             'return_url' => $paymentLinkBody['returnUrl'],
-            'expires_at' => $expires_at
+            'expires_at' => $expiresAt
         ]);
 
         $paymentLinkDto = new CreatePaymentLinkDto(
@@ -32,7 +40,8 @@ class PaymentLinkService
             $paymentLinkBody['currency'],
             $paymentLinkBody['notificationUrl'],
             $paymentLinkBody['returnUrl'],
-            $expires_at
+            $expiresAt,
+            $merchant->id
         );
 
         $paymentLink = new PaymentLink();
@@ -42,6 +51,7 @@ class PaymentLinkService
         $paymentLink->notification_url = $paymentLinkDto->notificationUrl;
         $paymentLink->return_url = $paymentLinkDto->returnUrl;
         $paymentLink->expires_at = Carbon::instance($paymentLinkDto->expiresAt);
+        $paymentLink->merchant_id = $paymentLinkDto->merchantId;
 
         if (!$paymentLink->save()) {
             Log::error('[SERVICE][CREATE][PAYMENT-LINK][DB][ERROR] Failed to save payment link to the database', [

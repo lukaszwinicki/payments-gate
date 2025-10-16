@@ -50,7 +50,7 @@ class CreatePaymentLink extends Page implements Forms\Contracts\HasForms
 
         if ($response->successful()) {
             $json = $response->json();
-            $link = $json['payment_link'] ?? null;
+            $link = $json['paymentLink'] ?? null;
 
             Notification::make()
                 ->title('Payment link created')

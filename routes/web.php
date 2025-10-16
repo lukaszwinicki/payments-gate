@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Controllers\PaymentLinkController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {

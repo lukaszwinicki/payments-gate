@@ -26,7 +26,7 @@ class TransactionResource extends Resource
         return $form
             ->schema([
                 Forms\Components\TextInput::make('transaction_uuid')->required(),
-                Forms\Components\TextInput::make('transactions_id')->required(),
+                Forms\Components\TextInput::make('transaction_id')->required(),
                 Forms\Components\TextInput::make('merchant_id')->required(),
                 Forms\Components\TextInput::make('refund_code'),
                 Forms\Components\TextInput::make('amount')->numeric()->required(),
@@ -59,7 +59,7 @@ class TransactionResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('id')->label('ID')->sortable()->searchable(),
                 Tables\Columns\TextColumn::make('transaction_uuid')->label('UUID')->copyable()->sortable()->searchable(),
-                Tables\Columns\TextColumn::make('transactions_id')->label('Transactions ID')->copyable()->sortable()->searchable(),
+                Tables\Columns\TextColumn::make('transaction_id')->label('Transactions ID')->copyable()->sortable()->searchable(),
                 Tables\Columns\TextColumn::make('merchant_id')->limit(5)->label('Merchant ID')->copyable()->sortable()->searchable(),
                 Tables\Columns\TextColumn::make('refund_code')->label('Refund Code')->copyable()->sortable()->searchable(),
                 Tables\Columns\TextColumn::make('name')->label('Full name')->copyable()->sortable()->searchable(),

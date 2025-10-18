@@ -11,6 +11,28 @@ class CreatePaymentLinkValidatorService
         $rules = [
             'amount' => 'required|numeric',
             'currency' => 'required|string|max:3',
+            'expiresAt' => [
+                'required',
+                'date',
+                function ($attribute, $value, $fail) {
+                    try {
+                        $expiration = \Carbon\Carbon::parse($value);
+                    } catch (\Exception $e) {
+                        $fail('Invalid expiration date format.');
+                        return;
+                    }
+
+                    $now = now();
+
+                    if ($expiration->lt($now)) {
+                        $fail('The expiration date cannot be in the past.');
+                    }
+
+                    if ($expiration->lt($now->addMinute())) {
+                        $fail('The expiration date must be at least one minute later than now.');
+                    }
+                }
+            ],
             'notificationUrl' => 'required|string|url',
             'returnUrl' => 'required|string|url'
         ];

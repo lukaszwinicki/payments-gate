@@ -97,6 +97,9 @@ class TPayService implements PaymentMethodInterface
             $tpayResponseBody['payer']['email'],
             $tpayResponseBody['currency'],
             $tpayResponseBody['amount'],
+            $transactionBody['notificationUrl'],
+            $transactionBody['returnUrl'],
+            $paymentMethod,
             $tpayResponseBody['transactionPaymentUrl']
         );
 

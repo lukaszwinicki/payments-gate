@@ -4,20 +4,18 @@ namespace App\Http\Controllers;
 
 use App\Enums\PaymentMethod;
 use App\Enums\TransactionStatus;
-use App\Exceptions\RefundNotSupportedException;
-use App\Exceptions\UnexpectedStatusCodeException;
 use App\Facades\TransactionSignatureFacade;
 use App\Factory\PaymentMethodFactory;
 use App\Jobs\ProcessWebhookJob;
-use App\Models\Merchant;
 use App\Models\Transaction;
-use App\Services\CreateTransactionValidatorService;
 use App\Services\PaymentStatusService;
+use App\Services\CreateTransactionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Gate;
+use InvalidArgumentException;
 use OpenApi\Attributes as OA;
 
 class TransactionController extends Controller
@@ -26,7 +24,7 @@ class TransactionController extends Controller
 
     public function __construct
     (
-        private CreateTransactionValidatorService $validator,
+        private CreateTransactionService $createTransactionService,
         protected PaymentStatusService $paymentStatusService
     ) {
     }
@@ -82,30 +80,20 @@ class TransactionController extends Controller
     public function createTransaction(Request $request): JsonResponse
     {
         $transactionBody = $request->all();
-        $apiKeyHeader = $request->header();
+        $apiKey = $request->header('x-api-key');
 
         Log::info('[CONTROLLER][CREATE][START] Received create payment request', [
             'paymentMethod' => $transactionBody['paymentMethod'],
             'transactionBody' => $transactionBody,
-            'apiKeyHeader' => $apiKeyHeader
+            'apiKey' => $apiKey
         ]);
 
-        $transactionBodyRequestValidator = $this->validator->validate($transactionBody);
-
-        if ($transactionBodyRequestValidator->fails()) {
-            Log::error('[CONTROLLER][CREATE][VALIDATION][FAIL]', [
-                'errors' => $transactionBodyRequestValidator->errors()->toArray()
-            ]);
-            return response()->json(['error' => $transactionBodyRequestValidator->errors()], 422);
+        if (!$apiKey) {
+            Log::error('[CONTROLLER][CREATE][ERROR] Missing required header: X-API-KEY');
+            return response()->json(['error' => 'The transaction could not be completed'], 500);
         }
 
-        $paymentService = PaymentMethodFactory::getInstanceByPaymentMethod(PaymentMethod::tryFrom($transactionBody['paymentMethod']));
-
-        try {
-            $createTransactionDto = $paymentService->create($transactionBody);
-        } catch (\App\Exceptions\UnsupportedCurrencyException $e) {
-            return response()->json(['error' => $e->getMessage()], 400);
-        }
+        $createTransactionDto = $this->createTransactionService->createTransaction($transactionBody, $apiKey);
 
         if ($createTransactionDto === null) {
             Log::error('[CONTROLLER][CREATE][ERROR] Payment service returned null for transaction creation', [
@@ -114,28 +102,11 @@ class TransactionController extends Controller
             return response()->json(['error' => 'The transaction could not be completed'], 500);
         }
 
-        $merchantId = Merchant::where('api_key', $apiKeyHeader['x-api-key'][0])->first();
-
-        $transaction = new Transaction();
-        $transaction->transaction_uuid = $createTransactionDto->uuid;
-        $transaction->transaction_id = $createTransactionDto->transactionId;
-        $transaction->merchant_id = $merchantId->id;
-        $transaction->amount = $createTransactionDto->amount;
-        $transaction->name = $createTransactionDto->name;
-        $transaction->email = $createTransactionDto->email;
-        $transaction->currency = $createTransactionDto->currency;
-        $transaction->status = TransactionStatus::PENDING;
-        $transaction->notification_url = $transactionBody['notificationUrl'];
-        $transaction->return_url = $transactionBody['returnUrl'];
-        $transaction->payment_method = $transactionBody['paymentMethod'];
-        $transaction->save();
-
-        Log::info('[CONTROLLER][CREATE][COMPLETED] Transaction is waiting for confirmation', [
-            'paymentMethod' => $transactionBody['paymentMethod'],
-            'transactionUuid' => $transaction->transaction_uuid,
+        Log::info('[CONTROLLER][CREATE][COMPLETED] Transaction was created successfully', [
+            'transactionUuid' => $createTransactionDto->uuid,
         ]);
 
-        return response()->json(['link' => $createTransactionDto->link, 'transactionUuid' => $transaction->transaction_uuid]);
+        return response()->json(['link' => $createTransactionDto->link, 'transactionUuid' => $createTransactionDto->uuid]);
     }
 
     public function confirmTransaction(Request $request): mixed
@@ -149,7 +120,12 @@ class TransactionController extends Controller
             'header' => $headers
         ]);
 
-        $paymentSevice = PaymentMethodFactory::getInstanceByPaymentMethod(PaymentMethod::tryFrom($request->query('payment-method')));
+        $paymentMethod = $request->query('payment-method');
+        if (!is_string($paymentMethod)) {
+            throw new InvalidArgumentException('Invalid or missing payment method');
+        }
+
+        $paymentSevice = PaymentMethodFactory::getInstanceByPaymentMethod(PaymentMethod::tryFrom($paymentMethod));
         $confirmTransactionDto = $paymentSevice->confirm($webHookBody, $headers);
 
         if ($confirmTransactionDto?->status !== null) {
@@ -274,14 +250,9 @@ class TransactionController extends Controller
         }
 
         $paymentService = PaymentMethodFactory::getInstanceByPaymentMethod($transaction->payment_method);
+        $refundPaymentDto = $paymentService->refund($refundBody);
 
-        try {
-            $refundPaymentDto = $paymentService->refund($refundBody);
-        } catch (RefundNotSupportedException | UnexpectedStatusCodeException $e) {
-            return response()->json(['error' => $e->getMessage()], 400);
-        }
-
-        if ($transaction && $refundPaymentDto !== null && $refundPaymentDto->status === TransactionStatus::REFUND_PENDING) {
+        if ($refundPaymentDto !== null && $refundPaymentDto->status === TransactionStatus::REFUND_PENDING) {
             $transaction->status = TransactionStatus::REFUND_PENDING;
             $transaction->save();
 

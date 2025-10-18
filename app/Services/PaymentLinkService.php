@@ -3,24 +3,32 @@
 namespace App\Services;
 
 use App\Dtos\CreatePaymentLinkDto;
+use App\Dtos\PaymentLinkTransactionDto;
+use App\Models\Transaction;
 use App\Models\Merchant;
 use App\Models\PaymentLink;
+use App\Services\CreateTransactionService;
 use DateTimeImmutable;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
 
+
 class PaymentLinkService
 {
-    public function create(array $paymentLinkBody, array $apiKeyHeader): ?CreatePaymentLinkDto
+    public function __construct(
+        private CreateTransactionService $createTransactionService
+    ) {
+    }
+
+    public function create(array $paymentLinkBody, string $apiKey): ?CreatePaymentLinkDto
     {
         $uuid = (string) Str::uuid();
-        $expiresAt = new DateTimeImmutable('+2 hours');
-        $merchant = Merchant::where('api_key', $apiKeyHeader['x-api-key'][0])->first();
+        $merchant = Merchant::where('api_key', $apiKey)->first();
 
         if (!$merchant) {
             Log::error('[SERVICE][CREATE][PAYMENT-LINK][ERROR] Merchant not found', [
-                'api_key' => $apiKeyHeader['x-api-key'][0],
+                'apiKey' => $apiKey,
             ]);
             return null;
         }
@@ -31,31 +39,31 @@ class PaymentLinkService
             'currency' => $paymentLinkBody['currency'],
             'notification_url' => $paymentLinkBody['notificationUrl'],
             'return_url' => $paymentLinkBody['returnUrl'],
-            'expires_at' => $expiresAt
+            'expires_at' => $paymentLinkBody['expiresAt']
         ]);
 
-        $paymentLinkDto = new CreatePaymentLinkDto(
+        $createPaymentLinkDto = new CreatePaymentLinkDto(
             $uuid,
             $paymentLinkBody['amount'],
             $paymentLinkBody['currency'],
             $paymentLinkBody['notificationUrl'],
             $paymentLinkBody['returnUrl'],
-            $expiresAt,
+            new DateTimeImmutable($paymentLinkBody['expiresAt']),
             $merchant->id
         );
 
         $paymentLink = new PaymentLink();
-        $paymentLink->payment_link_id = $paymentLinkDto->paymentLinkId;
-        $paymentLink->amount = $paymentLinkDto->amount;
-        $paymentLink->currency = $paymentLinkDto->currency;
-        $paymentLink->notification_url = $paymentLinkDto->notificationUrl;
-        $paymentLink->return_url = $paymentLinkDto->returnUrl;
-        $paymentLink->expires_at = Carbon::instance($paymentLinkDto->expiresAt);
-        $paymentLink->merchant_id = $paymentLinkDto->merchantId;
+        $paymentLink->payment_link_id = $createPaymentLinkDto->paymentLinkId;
+        $paymentLink->amount = $createPaymentLinkDto->amount;
+        $paymentLink->currency = $createPaymentLinkDto->currency;
+        $paymentLink->notification_url = $createPaymentLinkDto->notificationUrl;
+        $paymentLink->return_url = $createPaymentLinkDto->returnUrl;
+        $paymentLink->expires_at = Carbon::instance($createPaymentLinkDto->expiresAt);
+        $paymentLink->merchant_id = $createPaymentLinkDto->merchantId;
 
         if (!$paymentLink->save()) {
             Log::error('[SERVICE][CREATE][PAYMENT-LINK][DB][ERROR] Failed to save payment link to the database', [
-                'paymentLinkId' => $paymentLinkDto->paymentLinkId,
+                'paymentLinkId' => $createPaymentLinkDto->paymentLinkId,
             ]);
         }
 
@@ -63,6 +71,77 @@ class PaymentLinkService
             'paymentLinkId' => $uuid,
         ]);
 
-        return $paymentLinkDto;
+        return $createPaymentLinkDto;
+    }
+
+    public function createPaymentFromLink(array $paymentLinkBody): ?PaymentLinkTransactionDto
+    {
+        if (!Str::isUuid($paymentLinkBody['paymentLinkId'] ?? '')) {
+            Log::error('[SERVICE][CREATE][TRANSACTION-PAYMENT-LINK][ERROR] Invalid UUID', [
+                'paymentLinkId' => $paymentLinkBody['paymentLinkId'] ?? 'NULL'
+            ]);
+            return null;
+        }
+
+        $paymentLinkData = PaymentLink::where('payment_link_id', $paymentLinkBody['paymentLinkId'])->first();
+
+        if (!$paymentLinkData) {
+            Log::error('[SERVICE][CREATE][TRANSACTION-PAYMENT-LINK][ERROR] PaymentLinkData not found', [
+                'paymentLinkId' => $paymentLinkBody['paymentLinkId']
+            ]);
+            return null;
+        }
+
+        $apiKey = Merchant::where('id', $paymentLinkData->merchant_id)->first();
+
+        if (!$apiKey) {
+            Log::error('[SERVICE][CREATE][TRANSACTION-PAYMENT-LINK][ERROR] Merchant not found', [
+                'merchantId' => $paymentLinkData->merchant_id
+            ]);
+            return null;
+        }
+
+        Log::info('[SERVICE][CREATE][TRANSACTION-PAYMENT-LINK][START] Starting create process', [
+            'paymentLinkId' => $paymentLinkBody['paymentLinkId']
+        ]);
+
+        $paymentLinkRequest = [
+            'amount' => $paymentLinkData->amount,
+            'email' => $paymentLinkBody['email'],
+            'name' => $paymentLinkBody['fullname'],
+            'currency' => $paymentLinkData->currency,
+            'paymentMethod' => $paymentLinkBody['paymentMethod'],
+            'notificationUrl' => $paymentLinkData->notification_url,
+            'returnUrl' => $paymentLinkData->return_url
+        ];
+
+        $createTransactionDto = $this->createTransactionService->createTransaction($paymentLinkRequest, $apiKey->api_key);
+
+        if ($createTransactionDto === null) {
+            Log::error('[SERVICE][CREATE][TRANSACTION-PAYMENT-LINK][ERROR] CreateTrasactionDto is null');
+            throw new \RuntimeException('The transaction could not be completed.');
+        }
+
+        $transactionId = Transaction::where('transaction_uuid', $createTransactionDto->uuid)->first();
+
+        if ($transactionId) {
+            $paymentLinkData->transaction_id = $transactionId->id;
+            $paymentLinkData->save();
+            Log::info('[SERVICE][CREATE][TRANSACTION-PAYMENT-LINK][DB] Transaction id was updated', [
+                'paymentLinkId' => $paymentLinkBody['paymentLinkId']
+            ]);
+        }
+
+        $paymentLinkTransactionDto = new PaymentLinkTransactionDto(
+            $createTransactionDto->link,
+            $createTransactionDto->uuid
+        );
+
+        Log::info('[SERVICE][CREATE][TRANSACTION-PAYMENT-LINK][COMPLETED] Transaction from payment link created successfully', [
+            'paymentLink' => $createTransactionDto->link,
+            'transactionUuid' => $createTransactionDto->uuid
+        ]);
+
+        return $paymentLinkTransactionDto;
     }
 }

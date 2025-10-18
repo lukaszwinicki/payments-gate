@@ -20,6 +20,8 @@ class CreatePaymentLink extends Page implements Forms\Contracts\HasForms
 
     public float $amount;
     public string $currency;
+
+    public string $expiresAt;
     public string $notificationUrl;
     public string $returnUrl;
 
@@ -29,6 +31,12 @@ class CreatePaymentLink extends Page implements Forms\Contracts\HasForms
         return [
             Forms\Components\TextInput::make('amount')->required(),
             Forms\Components\TextInput::make('currency')->required(),
+            Forms\Components\DateTimePicker::make('expiresAt')
+                ->required()
+                ->displayFormat('Y-m-d H:i')
+                ->timezone('Europe/Warsaw')
+                ->native(false)
+                ->seconds(false),
             Forms\Components\TextInput::make('notificationUrl')->required(),
             Forms\Components\TextInput::make('returnUrl')->required(),
         ];

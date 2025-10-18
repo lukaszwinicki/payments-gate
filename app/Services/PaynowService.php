@@ -93,6 +93,9 @@ class PaynowService implements PaymentMethodInterface
             $transactionBody['email'],
             $transactionBody['currency'],
             $transactionBody['amount'],
+            $transactionBody['notificationUrl'],
+            $transactionBody['returnUrl'],
+            $paymentMethod,
             $paynowResponseBody['redirectUrl']
         );
 

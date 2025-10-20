@@ -9,7 +9,8 @@ use App\Factory\PaymentMethodFactory;
 use App\Jobs\ProcessWebhookJob;
 use App\Models\Transaction;
 use App\Services\PaymentStatusService;
-use App\Services\CreateTransactionService;
+use App\Services\TransactionService;
+use App\Services\TransactionValidatorService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -24,8 +25,9 @@ class TransactionController extends Controller
 
     public function __construct
     (
-        private CreateTransactionService $createTransactionService,
-        protected PaymentStatusService $paymentStatusService
+        private TransactionService $createTransactionService,
+        private TransactionValidatorService $transactionValidatorService,
+        protected PaymentStatusService $paymentStatusService,
     ) {
     }
 
@@ -90,7 +92,16 @@ class TransactionController extends Controller
 
         if (!$apiKey) {
             Log::error('[CONTROLLER][CREATE][ERROR] Missing required header: X-API-KEY');
-            return response()->json(['error' => 'The transaction could not be completed'], 500);
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
+
+        $transactionPayloadValidator = $this->transactionValidatorService->validate($transactionBody);
+
+        if ($transactionPayloadValidator->fails()) {
+            Log::error('[CONTROLLER][CREATE][PAYMENT-LINK][VALIDATION][FAIL]', [
+                'errors' => $transactionPayloadValidator->errors()->toArray()
+            ]);
+            return response()->json(['error' => $transactionPayloadValidator->errors()], 422);
         }
 
         $createTransactionDto = $this->createTransactionService->createTransaction($transactionBody, $apiKey);

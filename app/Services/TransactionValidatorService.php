@@ -5,7 +5,7 @@ namespace App\Services;
 use App\Enums\PaymentMethod;
 use Illuminate\Support\Facades\Validator;
 
-class CreateTransactionValidatorService
+class TransactionValidatorService
 {
     public function validate(array $transactionBody): \Illuminate\Validation\Validator
     {

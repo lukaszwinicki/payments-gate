@@ -10,13 +10,10 @@ use App\Enums\PaymentMethod;
 use App\Factory\PaymentMethodFactory;
 use Illuminate\Support\Facades\Log;
 
-class CreateTransactionService
+class TransactionService
 {
-    public function __construct
-    (
-        private CreateTransactionValidatorService $validator,
-        protected PaymentStatusService $paymentStatusService
-    ) {
+    public function __construct(protected PaymentStatusService $paymentStatusService)
+    {
     }
 
     public function createTransaction(array $transactionBody, string $apiKey): ?CreateTransactionDto
@@ -26,15 +23,6 @@ class CreateTransactionService
             'transactionBody' => $transactionBody,
             'apiKey' => $apiKey
         ]);
-
-        $transactionBodyRequestValidator = $this->validator->validate($transactionBody);
-
-        if ($transactionBodyRequestValidator->fails()) {
-            Log::error('[SERVICE][CREATE-TRANSACTION][VALIDATION][FAIL]', [
-                'errors' => $transactionBodyRequestValidator->errors()->toArray()
-            ]);
-            return null;
-        }
 
         $paymentService = PaymentMethodFactory::getInstanceByPaymentMethod(PaymentMethod::tryFrom($transactionBody['paymentMethod']));
         $createTransactionDto = $paymentService->create($transactionBody);

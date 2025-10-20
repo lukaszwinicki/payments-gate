@@ -7,21 +7,20 @@ use App\Dtos\PaymentLinkTransactionDto;
 use App\Models\Transaction;
 use App\Models\Merchant;
 use App\Models\PaymentLink;
-use App\Services\CreateTransactionService;
+use App\Services\TransactionService;
 use DateTimeImmutable;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
 
-
 class PaymentLinkService
 {
     public function __construct(
-        private CreateTransactionService $createTransactionService
+        private TransactionService $createTransactionService
     ) {
     }
 
-    public function create(array $paymentLinkBody, string $apiKey): ?CreatePaymentLinkDto
+    public function createPaymentLink(array $paymentLinkBody, string $apiKey): ?CreatePaymentLinkDto
     {
         $uuid = (string) Str::uuid();
         $merchant = Merchant::where('api_key', $apiKey)->first();

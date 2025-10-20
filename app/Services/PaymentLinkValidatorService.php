@@ -4,7 +4,7 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\Validator;
 
-class CreatePaymentLinkValidatorService
+class PaymentLinkValidatorService
 {
     public function validate(array $paymentLinkBody): \Illuminate\Validation\Validator
     {

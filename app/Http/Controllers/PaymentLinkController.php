@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\PaymentLink;
 use App\Models\Transaction;
-use App\Services\CreatePaymentLinkValidatorService;
+use App\Services\PaymentLinkValidatorService;
 use App\Services\PaymentLinkService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,7 +14,7 @@ class PaymentLinkController
 {
     public function __construct(
         private PaymentLinkService $paymentLinkService,
-        private CreatePaymentLinkValidatorService $validator
+        private PaymentLinkValidatorService $validator
     ) {
     }
 
@@ -30,7 +30,7 @@ class PaymentLinkController
 
         if (!$apiKey) {
             Log::error('[CONTROLLER][CREATE][PAYMENT-LINK][ERROR] Missing required header: X-API-KEY');
-            return response()->json(['error' => 'The transaction could not be completed'], 500);
+            return response()->json(['error' => 'Unauthorized missing X-API-KEY'], 401);
         }
 
         $paymentLinkBodyRequestValidator = $this->validator->validate($paymentLinkBody);
@@ -42,11 +42,11 @@ class PaymentLinkController
             return response()->json(['error' => $paymentLinkBodyRequestValidator->errors()], 422);
         }
 
-        $paymentLink = $this->paymentLinkService->create($paymentLinkBody, $apiKey);
+        $paymentLink = $this->paymentLinkService->createPaymentLink($paymentLinkBody, $apiKey);
 
         if ($paymentLink === null) {
             Log::error('[CONTROLLER][CREATE][PAYMENT-LINK][ERROR] Payment link service returned null');
-            return response()->json(['error' => 'The paymnet link could not be completed'], 500);
+            return response()->json(['error' => 'The payment link could not be generated'], 500);
         }
 
         Log::info('[CONTROLLER][CREATE][PAYMENT-LINK][COMPLETED] Payment link was created', [
@@ -72,7 +72,7 @@ class PaymentLinkController
                 'paymentLinkId' => $paymentLinkId
             ]);
             return response()->json([
-                'message' => 'Payment link not found'
+                'error' => 'Payment link not found'
             ], 404);
         }
 
@@ -81,7 +81,7 @@ class PaymentLinkController
                 'paymentLinkId' => $paymentLinkId
             ]);
             return response()->json([
-                'message' => 'Payment link expired'
+                'error' => 'Payment link expired'
             ], 410);
         }
 
@@ -97,7 +97,7 @@ class PaymentLinkController
                 'amount' => $paymentLink->amount,
                 'currency' => $paymentLink->currency,
             ],
-            'transaction' => [
+            'transaction' => $transactionDetailsFromLink === null ? null : [
                 'status' => $transactionDetailsFromLink->status ?? null,
                 'amount' => $transactionDetailsFromLink->amount ?? null,
                 'currency' => $transactionDetailsFromLink->currency ?? null,

@@ -13,5 +13,5 @@ Route::middleware('api-key')->group(function () {
 Route::post('/confirm-payment-link', [PaymentLinkController::class, 'confirmPaymentLink']);
 Route::post('/confirm-transaction', [TransactionController::class, 'confirmTransaction']);
 
-Route::get('/transactions/{uuid}/status', [TransactionController::class, 'getStatus']);
+Route::get('/transaction/{uuid}/status', [TransactionController::class, 'getStatus']);
 Route::get('/payment/{payment_link_id}', [PaymentLinkController::class, 'paymentDetails']);

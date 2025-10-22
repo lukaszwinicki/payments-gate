@@ -37,9 +37,11 @@ class TPayServiceTest extends TestCase
         $transactionBody = [
             'amount' => 100,
             'email' => 'test@example.com',
-            'currency' => 'USD', 
+            'currency' => 'USD',
             'name' => 'Test User',
             'paymentMethod' => 'TPAY',
+            'notificationUrl' => 'https://notification.url',
+            'returnUrl' => 'https://return.url'
         ];
 
         $mock = new MockHandler([
@@ -65,6 +67,8 @@ class TPayServiceTest extends TestCase
             'currency' => 'PLN',
             'name' => 'Jan Kowalski',
             'paymentMethod' => 'TPAY',
+            'notificationUrl' => 'https://notification.url',
+            'returnUrl' => 'https://return.url'
         ];
 
         $mockedResponse = [
@@ -104,6 +108,8 @@ class TPayServiceTest extends TestCase
         $this->assertEquals('jankowalski@example.com', $createTransactionDto->email);
         $this->assertEquals(100, $createTransactionDto->amount);
         $this->assertEquals('PLN', $createTransactionDto->currency);
+        $this->assertEquals('https://notification.url', $createTransactionDto->notificationUrl);
+        $this->assertEquals('https://return.url', $createTransactionDto->returnUrl);
         $this->assertEquals('https://example.com/link', $createTransactionDto->link);
     }
 

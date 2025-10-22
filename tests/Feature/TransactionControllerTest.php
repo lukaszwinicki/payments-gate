@@ -11,6 +11,7 @@ use App\Models\Transaction;
 use App\Models\User;
 use App\Services\PaynowService;
 use App\Services\TPayService;
+use App\Services\NodaService;
 use App\Jobs\ProcessWebhookJob;
 use App\Dtos\CreateTransactionDto;
 use GuzzleHttp\Client;
@@ -19,6 +20,8 @@ use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Psr7\Response;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Str;
+use Ramsey\Uuid\Uuid;
 use Tests\TestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 
@@ -46,11 +49,13 @@ class TransactionControllerTest extends TestCase
             ]);
     }
 
+    #[DataProvider('createTransactionFailsValidation')]
     public function test_create_transaction_fails_validation(): void
     {
         Merchant::factory()->create();
 
         $payload = [
+            'email' => 'test@email.com',
             'name' => "Test Test",
             'currency' => "PLN",
             'paymentMethod' => "PAYNOW",
@@ -71,23 +76,29 @@ class TransactionControllerTest extends TestCase
         $response->assertJsonStructure([
             'error' => [
                 'amount',
-                'email'
             ],
         ]);
     }
 
-    #[DataProvider('createTransactionPayloadAndApiKey')]
-    public function test_create_transaction_returns_null(array $payload, string $apiKey): void
+    #[DataProvider('createTransactionFailedProvider')]
+    public function test_create_transaction_returns_null(array $payload, string $serviceClass, array $mockResponse): void
     {
-        Merchant::factory()->create();
+        $mock = new MockHandler($mockResponse);
+        $handlerStack = HandlerStack::create($mock);
+        $client = new Client(['handler' => $handlerStack]);
+
+        $service = new $serviceClass($client);
+        $this->app->bind($serviceClass, fn() => $service);
+
+        $merchant = Merchant::factory()->create();
         TransactionServiceFasade::shouldReceive('createTransaction')
             ->once()
-            ->with($payload, $apiKey)
+            ->with($payload, $merchant->api_key)
             ->andReturn(null);
 
         $response = $this
             ->withHeaders([
-                'x-api-key' => $apiKey
+                'x-api-key' => $merchant->api_key
             ])->postJson('/api/create-transaction', $payload);
         $response->assertStatus(500)
             ->assertJson([
@@ -127,6 +138,47 @@ class TransactionControllerTest extends TestCase
                 'link' => $dto->link,
                 'transactionUuid' => $dto->uuid,
             ]);
+    }
+
+    #[DataProvider('paymentGatewaysTransactionLifecycleProvider')]
+    public function test_create_transaction_is_created_and_confirmed(string $serviceClass, array $transactionBody, array $mockResponse, array $headers, array $webhookBody): void
+    {
+        Str::createUuidsUsing(fn() => Uuid::fromString('8fe22800-d5ed-40e3-8dda-5289bc29e314'));
+        $mock = new MockHandler($mockResponse);
+        $handlerStack = HandlerStack::create($mock);
+        $client = new Client(['handler' => $handlerStack]);
+
+        $service = new $serviceClass($client);
+        $this->app->bind($serviceClass, fn() => $service);
+
+        Merchant::factory()->create();
+
+        $response = $this->withHeaders([
+            'x-api-key' => 'testowy-api-key'
+        ])->postJson('/api/create-transaction', $transactionBody);
+        $response->assertStatus(200);
+        $content = $response->getContent();
+
+        $this->assertIsString($content);
+        $result = json_decode($content, true);
+        $this->assertEquals('https://example.com/link', $result['link']);
+        $transaction = Transaction::where('transaction_uuid', $result['transactionUuid'])->first();
+        $this->assertNotNull($transaction);
+
+        Queue::fake();
+
+        $response = $this->withHeaders($headers)
+            ->post('/api/confirm-transaction?payment-method=' . $transactionBody['paymentMethod'], $webhookBody);
+        $response->assertStatus(200);
+
+        $this->assertDatabaseHas('transactions', [
+            'transaction_uuid' => $transaction->transaction_uuid,
+            'status' => TransactionStatus::SUCCESS
+        ]);
+
+        Queue::assertPushed(ProcessWebhookJob::class, function ($job) use ($transaction) {
+            return $job->transaction->transaction_uuid === $transaction->transaction_uuid;
+        });
     }
 
     #[DataProvider('confirmTransactionWithWebookBodyOrSignatureInvalid')]
@@ -386,6 +438,187 @@ class TransactionControllerTest extends TestCase
                     'returnUrl' => "https://return.url"
                 ],
                 'testowy-api-key'
+            ]
+        ];
+    }
+
+    public static function createTransactionFailedProvider(): array
+    {
+        return [
+            'TPAY' => [
+                [
+                    'amount' => 100,
+                    'email' => 'jankowalski@gmail.com',
+                    'name' => 'Jan Kowalski',
+                    'currency' => 'PLN',
+                    'paymentMethod' => 'TPAY',
+                    'returnUrl' => 'https://test.com',
+                    'notificationUrl' => 'https://notification.url'
+                ],
+                TPayService::class,
+                [
+                    new Response(200, [], json_encode(['access_token' => 'mock-token'], JSON_THROW_ON_ERROR)),
+                    new Response(500, [], '')
+                ]
+            ],
+            'PAYNOW' => [
+                [
+                    'amount' => 100,
+                    'email' => 'jankowalski@gmail.com',
+                    'name' => 'Jan Kowalski',
+                    'currency' => 'PLN',
+                    'paymentMethod' => 'PAYNOW',
+                    'returnUrl' => 'https://test.com',
+                    'notificationUrl' => 'https://notification.url'
+                ],
+                PaynowService::class,
+                [
+                    new Response(500, [], '')
+                ]
+            ],
+            'NODA' => [
+                [
+                    'amount' => 100,
+                    'email' => 'jankowalski@gmail.com',
+                    'name' => 'Jan Kowalski',
+                    'currency' => 'USD',
+                    'paymentMethod' => 'NODA',
+                    'returnUrl' => 'https://test.com',
+                    'notificationUrl' => 'https://notification.url'
+                ],
+                NodaService::class,
+                [
+                    new Response(500, [], '')
+                ]
+            ]
+        ];
+    }
+
+    public static function createTransactionFailsValidation(): array
+    {
+        return [
+            'TPAY' => [
+                [
+                    'email' => 'jankowalski@gmail.com',
+                    'paymentMethod' => 'TPAY',
+                    'notificationUrl' => 'https://notification.url',
+                ]
+            ],
+            'PAYNOW' => [
+                [
+                    'email' => 'jankowalski@gmail.com',
+                    'paymentMethod' => 'PAYNOW',
+                    'notificationUrl' => 'https://notification.url'
+                ]
+            ],
+            'NODA' => [
+                [
+                    'email' => 'jankowalski@gmail.com',
+                    'paymentMethod' => 'NODA',
+                    'notificationUrl' => 'https://notification.url'
+                ]
+            ]
+        ];
+    }
+
+    public static function paymentGatewaysTransactionLifecycleProvider(): array
+    {
+        return [
+            'TPAY' => [
+                TPayService::class,
+                [
+                    'amount' => 100,
+                    'email' => 'jankowalski@gmail.com',
+                    'name' => 'Jan Kowalski',
+                    'currency' => 'PLN',
+                    'paymentMethod' => 'TPAY',
+                    'returnUrl' => 'https://test.com',
+                    'notificationUrl' => 'https://notification.url',
+                ],
+                [
+                    new Response(200, [], json_encode(['access_token' => 'mock-token'], JSON_THROW_ON_ERROR)),
+                    new Response(200, [], json_encode([
+                        'transactionId' => '12345',
+                        'hiddenDescription' => '8fe22800-d5ed-40e3-8dda-5289bc29e314',
+                        'payer' => [
+                            'name' => 'Jan Kowalski',
+                            'email' => 'jankowalski@gmail.com',
+                        ],
+                        'amount' => 100,
+                        'currency' => 'PLN',
+                        'transactionPaymentUrl' => 'https://example.com/link',
+                    ], JSON_THROW_ON_ERROR)),
+                ],
+                [
+                    'x-jws-signature' => ['eyJhbGciOiJSUzI1NiIsIng1dSI6Imh0dHBzOlwvXC9zZWN1cmUuc2FuZGJveC50cGF5LmNvbVwveDUwOVwvbm90aWZpY2F0aW9ucy1qd3MucGVtIn0..HalI3jDvtvVGCn5wSiUUTH4ZSjAbbSEo2nbcI_PfqJIVgnH_vW6RMLEfOxfDQLkpZZoGNwgYg9fqw3h3zBt11qPDXn_m79iNnBe0-stLk4TPBDUEATEULIkpjLolFm727kNtZs2cxyfZm03SwtVOC7WrOQTEXqCZXtrGhONy-Sz_j4duG-haiAOvKLAbCJC4eRQvjxfX0LaUWhqscmJitZrJjb_l7THT-cA5Pq7FA4zbJMgbAHzRE6we41fFeQXal4Je3s5_KwbDzdXwpaYCo2MhOZTBEaUsMdvZHwKfKPYW7WcLhhqG_-tNaa8ZNTHrh8_B0wvKet4ReBPhAAfjwFjRQ2t4hX8Ukx0OYuTBz2LRh9Z-Gy7YQWR7-da67kwdTlKIfhtvUfwtu62PgV5LkVX9bll_27mKwZfwJvESqJoO4AUV-_Xn7g4sLNG_CkPc7QDk4TIXnKZuj19uvwEW4UVZlXmL4R2FaGJqmEPspBljPhte9Ez-avc1QmfV0WS4AF94GRMBy5XO-1ubiUZq9x6xlUIlwZ3Du7lz71uNpLHoZu2aBTm8ZnsB9zrVkfN1ZVuxEQ7Kx723bJdTH9KerT0fjTa7j9fKMBmwL64XqZmLMRAJmeo_iIfXVgYtdDunHOSYzat16QXbqDLykCxIHUcQ0UnJAai8LlAbGq66q2g'],
+                ],
+                [
+                    "id" => "401406",
+                    "tr_id" => "TR-4H6K-2KTYDX",
+                    "tr_date" => "2025-04-14 16:48:43",
+                    "tr_crc" => "8fe22800-d5ed-40e3-8dda-5289bc29e314",
+                    "tr_amount" => "10.00",
+                    "tr_paid" => "10.00",
+                    "tr_desc" => "8fe22800-d5ed-40e3-8dda-5289bc29e314",
+                    "tr_status" => "TRUE",
+                    "tr_error" => "none",
+                    "tr_email" => "artur18@wp.pl",
+                    "test_mode" => "0",
+                    "md5sum" => "697ba8f227ef5629e953d33a10de35f4"
+                ],
+            ],
+            'PAYNOW' => [
+                PaynowService::class,
+                [
+                    'amount' => 10,
+                    'email' => 'jankowalski@gmail.com',
+                    'name' => 'Jan Kowalski',
+                    'currency' => 'PLN',
+                    'paymentMethod' => 'PAYNOW',
+                    'returnUrl' => 'https://test.com',
+                    'notificationUrl' => 'https://notification.url',
+                ],
+                [
+                    new Response(201, [], json_encode([
+                        'paymentId' => '12345',
+                        'redirectUrl' => 'https://example.com/link',
+                    ], JSON_THROW_ON_ERROR)),
+                ],
+                [
+                    'signature' => ['bM4K/b1PFP3ic2K+rf3j1UnF7yU0bqt9dJjQvhJ4qMw=']
+                ],
+                [
+                    'paymentId' => '12345',
+                    'externalId' => '8fe22800-d5ed-40e3-8dda-5289bc29e314',
+                    'status' => 'CONFIRMED'
+                ],
+            ],
+            'NODA' => [
+                NodaService::class,
+                [
+                    'amount' => 10,
+                    'email' => 'jankowalski@gmail.com',
+                    'name' => 'Jan Kowalski',
+                    'currency' => 'USD',
+                    'paymentMethod' => 'NODA',
+                    'returnUrl' => 'https://test.com',
+                    'notificationUrl' => 'https://notification.url',
+                ],
+                [
+                    new Response(200, [], json_encode([
+                        'id' => 'test-12345',
+                        'url' => 'https://example.com/link'
+                    ], JSON_THROW_ON_ERROR)),
+                ],
+                [
+                    // Signature is included in $webHookBody; no signature is sent via headers.
+                ],
+                [
+                    'PaymentId' => '717b62f9-d92c-4faa-99a5-b967a2eb14fc',
+                    'Status' => 'Done',
+                    'Signature' => 'a0be8a3b50aec5bd14684c0a46c8a1278fb134870607d0cd36ada937432161c3',
+                    'MerchantPaymentId' => '8fe22800-d5ed-40e3-8dda-5289bc29e314'
+                ],
             ]
         ];
     }

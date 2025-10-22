@@ -3,8 +3,8 @@
 namespace App\Services;
 
 use App\Dtos\CreateTransactionDto;
+use App\Factories\TransactionFactory;
 use App\Models\Merchant;
-use App\Models\Transaction;
 use App\Enums\TransactionStatus;
 use App\Enums\PaymentMethod;
 use App\Factory\PaymentMethodFactory;
@@ -12,8 +12,10 @@ use Illuminate\Support\Facades\Log;
 
 class TransactionService
 {
-    public function __construct(protected PaymentStatusService $paymentStatusService)
-    {
+    public function __construct(
+        private PaymentMethodFactory $paymentMethodFactory,
+        private TransactionFactory $transactionFactory,
+    ) {
     }
 
     public function createTransaction(array $transactionBody, string $apiKey): ?CreateTransactionDto
@@ -24,7 +26,7 @@ class TransactionService
             'apiKey' => $apiKey
         ]);
 
-        $paymentService = PaymentMethodFactory::getInstanceByPaymentMethod(PaymentMethod::tryFrom($transactionBody['paymentMethod']));
+        $paymentService = $this->paymentMethodFactory->getInstanceByPaymentMethod(PaymentMethod::tryFrom($transactionBody['paymentMethod']));
         $createTransactionDto = $paymentService->create($transactionBody);
 
         if ($createTransactionDto === null) {
@@ -41,7 +43,7 @@ class TransactionService
             return null;
         }
 
-        $transaction = new Transaction();
+        $transaction = $this->transactionFactory->make();
         $transaction->transaction_uuid = $createTransactionDto->uuid;
         $transaction->transaction_id = $createTransactionDto->transactionId;
         $transaction->merchant_id = $merchantId->id;

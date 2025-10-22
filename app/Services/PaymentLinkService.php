@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Dtos\CreatePaymentLinkDto;
 use App\Dtos\PaymentLinkTransactionDto;
+use App\Factories\PaymentLinkFactory;
 use App\Models\Transaction;
 use App\Models\Merchant;
 use App\Models\PaymentLink;
@@ -16,7 +17,8 @@ use Illuminate\Support\Facades\Log;
 class PaymentLinkService
 {
     public function __construct(
-        private TransactionService $createTransactionService
+        private TransactionService $createTransactionService,
+        private PaymentLinkFactory $paymentLinkFactory
     ) {
     }
 
@@ -33,12 +35,12 @@ class PaymentLinkService
         }
 
         Log::info('[SERVICE][CREATE][PAYMENT-LINK][START] Starting create process', [
-            'payment_link_id' => $uuid,
+            'paymentLinkId' => $uuid,
             'amount' => $paymentLinkBody['amount'],
             'currency' => $paymentLinkBody['currency'],
-            'notification_url' => $paymentLinkBody['notificationUrl'],
-            'return_url' => $paymentLinkBody['returnUrl'],
-            'expires_at' => $paymentLinkBody['expiresAt']
+            'notificationUrl' => $paymentLinkBody['notificationUrl'],
+            'returnUrl' => $paymentLinkBody['returnUrl'],
+            'expiresAt' => $paymentLinkBody['expiresAt']
         ]);
 
         $createPaymentLinkDto = new CreatePaymentLinkDto(
@@ -51,7 +53,7 @@ class PaymentLinkService
             $merchant->id
         );
 
-        $paymentLink = new PaymentLink();
+        $paymentLink = $this->paymentLinkFactory->make();
         $paymentLink->payment_link_id = $createPaymentLinkDto->paymentLinkId;
         $paymentLink->amount = $createPaymentLinkDto->amount;
         $paymentLink->currency = $createPaymentLinkDto->currency;
@@ -64,6 +66,7 @@ class PaymentLinkService
             Log::error('[SERVICE][CREATE][PAYMENT-LINK][DB][ERROR] Failed to save payment link to the database', [
                 'paymentLinkId' => $createPaymentLinkDto->paymentLinkId,
             ]);
+            return null;
         }
 
         Log::info('[SERVICE][CREATE][PAYMENT-LINK][COMPLETED] Payment link created successfully', [
@@ -91,9 +94,9 @@ class PaymentLinkService
             return null;
         }
 
-        $apiKey = Merchant::where('id', $paymentLinkData->merchant_id)->first();
+        $merchant = Merchant::where('id', $paymentLinkData->merchant_id)->first();
 
-        if (!$apiKey) {
+        if (!$merchant) {
             Log::error('[SERVICE][CREATE][TRANSACTION-PAYMENT-LINK][ERROR] Merchant not found', [
                 'merchantId' => $paymentLinkData->merchant_id
             ]);
@@ -114,11 +117,11 @@ class PaymentLinkService
             'returnUrl' => $paymentLinkData->return_url
         ];
 
-        $createTransactionDto = $this->createTransactionService->createTransaction($paymentLinkRequest, $apiKey->api_key);
+        $createTransactionDto = $this->createTransactionService->createTransaction($paymentLinkRequest, $merchant->api_key);
 
         if ($createTransactionDto === null) {
             Log::error('[SERVICE][CREATE][TRANSACTION-PAYMENT-LINK][ERROR] CreateTrasactionDto is null');
-            throw new \RuntimeException('The transaction could not be completed.');
+            return null;
         }
 
         $transactionId = Transaction::where('transaction_uuid', $createTransactionDto->uuid)->first();

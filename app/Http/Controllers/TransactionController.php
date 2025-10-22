@@ -27,6 +27,7 @@ class TransactionController extends Controller
     (
         private TransactionService $createTransactionService,
         private TransactionValidatorService $transactionValidatorService,
+        private PaymentMethodFactory $paymentMethodFactory,
         protected PaymentStatusService $paymentStatusService,
     ) {
     }
@@ -136,7 +137,7 @@ class TransactionController extends Controller
             throw new InvalidArgumentException('Invalid or missing payment method');
         }
 
-        $paymentSevice = PaymentMethodFactory::getInstanceByPaymentMethod(PaymentMethod::tryFrom($paymentMethod));
+        $paymentSevice = $this->paymentMethodFactory->getInstanceByPaymentMethod(PaymentMethod::tryFrom($paymentMethod));
         $confirmTransactionDto = $paymentSevice->confirm($webHookBody, $headers);
 
         if ($confirmTransactionDto?->status !== null) {
@@ -260,7 +261,7 @@ class TransactionController extends Controller
             return response()->json(['error' => 'Transaction refund is in progress.'], 400);
         }
 
-        $paymentService = PaymentMethodFactory::getInstanceByPaymentMethod($transaction->payment_method);
+        $paymentService = $this->paymentMethodFactory->getInstanceByPaymentMethod($transaction->payment_method);
         $refundPaymentDto = $paymentService->refund($refundBody);
 
         if ($refundPaymentDto !== null && $refundPaymentDto->status === TransactionStatus::REFUND_PENDING) {

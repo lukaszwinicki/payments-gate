@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\App;
 
 class PaymentMethodFactory
 {
-    public static function getInstanceByPaymentMethod(?PaymentMethod $paymentMethod): PaymentMethodInterface
+    public function getInstanceByPaymentMethod(?PaymentMethod $paymentMethod): PaymentMethodInterface
     {
         return match ($paymentMethod) {
             PaymentMethod::PAYMENT_METHOD_TPAY => App::make(TPayService::class),

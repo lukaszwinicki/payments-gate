@@ -93,9 +93,9 @@ class PaymentLinkControllerTest extends TestCase
             'payment-link-test.url',
             '10.00',
             'PLN',
-            'https://nootofication.url',
+            'https://notification.url',
             'https://return.url',
-            new \DateTimeImmutable('2025-10-21 11:00:00'),
+            (new \DateTimeImmutable())->add(new \DateInterval('PT1H')),
             1
         );
 
@@ -233,7 +233,7 @@ class PaymentLinkControllerTest extends TestCase
                 [
                     'amount' => 10.00,
                     'currency' => 'PLN',
-                    'expiresAt' => '2025-10-21 11:00:00',
+                    'expiresAt' => now()->addHour()->toAtomString(),
                     'notificationUrl' => 'https://notofication.url',
                     'returnUrl' => 'https://return.url'
                 ],

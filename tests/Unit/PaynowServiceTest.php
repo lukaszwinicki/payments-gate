@@ -37,6 +37,8 @@ class PaynowServiceTest extends TestCase
             'currency' => 'USD',
             'name' => 'Test User',
             'paymentMethod' => 'PAYNOW',
+            'notificationUrl' => 'https://notification.url',
+            'returnUrl' => 'https://return.url'
         ];
 
         $mock = new MockHandler([
@@ -62,6 +64,8 @@ class PaynowServiceTest extends TestCase
             'currency' => 'PLN',
             'name' => 'Jan Kowalski',
             'paymentMethod' => 'PAYNOW',
+            'notificationUrl' => 'https://notification.url',
+            'returnUrl' => 'https://return.url'
         ];
 
         $mockedResponse = [
@@ -85,6 +89,8 @@ class PaynowServiceTest extends TestCase
         $this->assertEquals('jankowalski@example.com', $createTransactionDto->email);
         $this->assertEquals('PLN', $createTransactionDto->currency);
         $this->assertEquals(100, $createTransactionDto->amount);
+        $this->assertEquals('https://notification.url', $createTransactionDto->notificationUrl);
+        $this->assertEquals('https://return.url', $createTransactionDto->returnUrl);
         $this->assertEquals('https://test-payment-url', $createTransactionDto->link);
     }
 
@@ -160,7 +166,7 @@ class PaynowServiceTest extends TestCase
         ]);
 
         $mockResponse = new Response(201, ['Content-Type' => 'application/json'], json_encode([
-            'status' => 'FAIL',             
+            'status' => 'FAIL',
             'refundId' => 'mocked-refund-id'
         ]));
 

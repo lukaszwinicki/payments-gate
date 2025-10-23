@@ -76,7 +76,7 @@ class PaymentLinkService
         return $createPaymentLinkDto;
     }
 
-    public function createPaymentFromLink(array $paymentLinkBody): ?PaymentLinkTransactionDto
+    public function createTransactionForPaymentLink(array $paymentLinkBody): ?PaymentLinkTransactionDto
     {
         if (!Str::isUuid($paymentLinkBody['paymentLinkId'] ?? '')) {
             Log::error('[SERVICE][CREATE][TRANSACTION-PAYMENT-LINK][ERROR] Invalid UUID', [
@@ -100,6 +100,11 @@ class PaymentLinkService
             Log::error('[SERVICE][CREATE][TRANSACTION-PAYMENT-LINK][ERROR] Merchant not found', [
                 'merchantId' => $paymentLinkData->merchant_id
             ]);
+            return null;
+        }
+
+        if ($paymentLinkData->transaction_id !== null) {
+            Log::error('[SERVICE][CREATE][TRANSACTION-PAYMENT-LINK][ERROR] The payment from the link has already been created');
             return null;
         }
 

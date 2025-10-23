@@ -102,7 +102,7 @@ class PaymentLinkServiceTest extends TestCase
         $this->assertEquals($merchant->id, $result->merchantId);
     }
 
-    public function test_create_payment_from_link_invalid_uuid(): void
+    public function test_create_transaction_for_payment_link_invalid_uuid(): void
     {
         $payload = [
             'paymentLinkId' => 'aaaaaaaa-bbbb-cccc-dddd',
@@ -115,12 +115,12 @@ class PaymentLinkServiceTest extends TestCase
             ]);
 
         $service = app(\App\Services\PaymentLinkService::class);
-        $result = $service->createPaymentFromLink($payload);
+        $result = $service->createTransactionForPaymentLink($payload);
 
         $this->assertNull($result);
     }
 
-    public function test_create_payment_from_link_payment_link_id_not_exists(): void
+    public function test_create_transaction_for_payment_link_id_not_exists(): void
     {
         PaymentLink::factory()->create();
 
@@ -135,12 +135,12 @@ class PaymentLinkServiceTest extends TestCase
             ]);
 
         $service = app(\App\Services\PaymentLinkService::class);
-        $result = $service->createPaymentFromLink($payload);
+        $result = $service->createTransactionForPaymentLink($payload);
 
         $this->assertNull($result);
     }
 
-    public function test_create_payment_from_link_create_transaction_fails(): void
+    public function test_create_transaction_for_payment_link_fails(): void
     {
         $merchant = Merchant::factory()->create();
         $paymentLink = PaymentLink::factory()->create([
@@ -165,12 +165,39 @@ class PaymentLinkServiceTest extends TestCase
             ->andReturn(null);
 
         $service = app(\App\Services\PaymentLinkService::class);
-        $result = $service->createPaymentFromLink($payload);
+        $result = $service->createTransactionForPaymentLink($payload);
 
         $this->assertNull($result);
     }
 
-    public function test_create_payment_from_link_successfull(): void
+    public function test_it_returns_null_if_transaction_already_exists_for_payment_link(): void
+    {
+        $merchant = Merchant::factory()->create();
+        $transaction = Transaction::factory()->create();
+        $paymentLink = PaymentLink::factory()->create([
+            'payment_link_id' => 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+            'merchant_id' => $merchant->id,
+            'transaction_id' => $transaction->id
+        ]);
+
+        $payload = [
+            'paymentLinkId' => $paymentLink->payment_link_id,
+            'email' => 'test@example.com',
+            'fullname' => 'Test User',
+            'paymentMethod' => 'card',
+        ];
+
+        Log::shouldReceive('error')
+            ->once()
+            ->with('[SERVICE][CREATE][TRANSACTION-PAYMENT-LINK][ERROR] The payment from the link has already been created');
+
+        $service = app(\App\Services\PaymentLinkService::class);
+        $result = $service->createTransactionForPaymentLink($payload);
+
+        $this->assertNull($result);
+    }
+
+    public function test_create_transaction_for_payment_link_successfull(): void
     {
         $merchant = Merchant::factory()->create();
         $paymentLink = PaymentLink::factory()->create([
@@ -235,7 +262,7 @@ class PaymentLinkServiceTest extends TestCase
         $property->setAccessible(true);
         $property->setValue($service, $mockTransactionService);
 
-        $result = $service->createPaymentFromLink($payload);
+        $result = $service->createTransactionForPaymentLink($payload);
 
         $this->assertInstanceOf(PaymentLinkTransactionDto::class, $result);
         $this->assertEquals($mockCreateTransactionDto->link, $result->paymentLink);

@@ -2,9 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Enums\PaymentMethod;
 use App\Enums\TransactionStatus;
-use App\Facades\TransactionServiceFasade;
 use App\Facades\TransactionSignatureFacade;
 use App\Models\Merchant;
 use App\Models\Transaction;
@@ -13,7 +11,6 @@ use App\Services\PaynowService;
 use App\Services\TPayService;
 use App\Services\NodaService;
 use App\Jobs\ProcessWebhookJob;
-use App\Dtos\CreateTransactionDto;
 use GuzzleHttp\Client;
 use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;
@@ -91,10 +88,6 @@ class TransactionControllerTest extends TestCase
         $this->app->bind($serviceClass, fn() => $service);
 
         $merchant = Merchant::factory()->create();
-        TransactionServiceFasade::shouldReceive('createTransaction')
-            ->once()
-            ->with($payload, $merchant->api_key)
-            ->andReturn(null);
 
         $response = $this
             ->withHeaders([
@@ -106,38 +99,26 @@ class TransactionControllerTest extends TestCase
             ]);
     }
 
-    #[DataProvider('createTransactionPayloadAndApiKey')]
-    public function test_create_transaction_returns_successful_response_when_transaction_is_created(array $payload, string $apiKey): void
+    #[DataProvider('paymentGatewaysTransactionLifecycleProvider')]
+    public function test_create_transaction_returns_successful_response_when_transaction_is_created(string $serviceClass, array $payload, array $mockResponse): void
     {
-        $dto = new CreateTransactionDto(
-            'abc-123',
-            'test-uuid-1234',
-            'Test Test',
-            'test@email.com',
-            'PLN',
-            '10',
-            'https://test.com',
-            'https://test.com',
-            PaymentMethod::PAYMENT_METHOD_TPAY,
-            'https://example.com/link',
-        );
+        $mock = new MockHandler($mockResponse);
+        $handlerStack = HandlerStack::create($mock);
+        $client = new Client(['handler' => $handlerStack]);
 
-        TransactionServiceFasade::shouldReceive('createTransaction')
-            ->once()
-            ->with($payload, $apiKey)
-            ->andReturn($dto);
+        $service = new $serviceClass($client);
+        $this->app->bind($serviceClass, fn() => $service);
 
+        $merchant = Merchant::factory()->create();
         $response = $this
             ->withoutMiddleware()
             ->withHeaders([
-                'x-api-key' => $apiKey
+                'x-api-key' => $merchant->api_key
             ])->postJson('/api/create-transaction', $payload);
 
-        $response->assertStatus(200)
-            ->assertJson([
-                'link' => $dto->link,
-                'transactionUuid' => $dto->uuid,
-            ]);
+        $response
+            ->assertStatus(200)
+            ->assertJsonStructure(['link', 'transactionUuid']);
     }
 
     #[DataProvider('paymentGatewaysTransactionLifecycleProvider')]
@@ -434,7 +415,7 @@ class TransactionControllerTest extends TestCase
                     'name' => "Test Test",
                     'currency' => "PLN",
                     'paymentMethod' => "PAYNOW",
-                    'notificationUrl' => "https://notofication.url",
+                    'notificationUrl' => "https://notification.url",
                     'returnUrl' => "https://return.url"
                 ],
                 'testowy-api-key'

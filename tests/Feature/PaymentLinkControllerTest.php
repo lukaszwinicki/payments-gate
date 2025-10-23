@@ -5,12 +5,18 @@ namespace Tests\Feature;
 use App\Models\Merchant;
 use App\Models\PaymentLink;
 use App\Models\Transaction;
+use App\Services\TPayService;
+use App\Services\PaynowService;
+use App\Services\NodaService;
 use App\Enums\PaymentMethod;
 use App\Enums\TransactionStatus;
-use App\Dtos\PaymentLinkTransactionDto;
-use App\Dtos\CreatePaymentLinkDto;
+use GuzzleHttp\Client;
+use GuzzleHttp\Handler\MockHandler;
+use GuzzleHttp\HandlerStack;
+use GuzzleHttp\Psr7\Response;
 use App\Facades\PaymentLinkServiceFasade;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Config;
 use Tests\TestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 
@@ -89,35 +95,25 @@ class PaymentLinkControllerTest extends TestCase
     public function test_create_payment_link_returns_successful_response_when_transaction_is_created(array $payload, string $apiKey): void
     {
         Merchant::factory()->create();
-        $dto = new CreatePaymentLinkDto(
-            'payment-link-test.url',
-            '10.00',
-            'PLN',
-            'https://notification.url',
-            'https://return.url',
-            (new \DateTimeImmutable())->add(new \DateInterval('PT1H')),
-            1
-        );
-
-        PaymentLinkServiceFasade::shouldReceive('createPaymentLink')
-            ->once()
-            ->with($payload, $apiKey)
-            ->andReturn($dto);
 
         $response = $this
             ->withHeaders([
                 'x-api-key' => $apiKey
             ])->postJson('/api/create-payment-link', $payload);
 
-        $response->assertStatus(200)
-            ->assertJson([
-                'paymentLink' => '/payment/' . $dto->paymentLinkId,
-            ]);
+        $response
+            ->assertStatus(200)
+            ->assertJsonStructure(['paymentLink']);
+
+        $json = $response->json();
+        $frontendUrl = Config::get('app.frontendUrl');
+
+        $this->assertStringStartsWith($frontendUrl . '/payment/', $json['paymentLink']);
     }
 
     public function test_payment_details_payment_link_not_found(): void
     {
-        $response = $this->getJson('/api/payment/34af91ea-8baf-4d7f-a05c-5c932ec3b641');
+        $response = $this->getJson('/api/payment/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee');
 
         $response->assertStatus(404)
             ->assertJson([
@@ -168,7 +164,7 @@ class PaymentLinkControllerTest extends TestCase
         ]);
 
         $paymentLink = PaymentLink::factory()->create([
-            'payment_link_id' => '34af91ea-8baf-4d7f-a05c-5c932ec3b641',
+            'payment_link_id' => 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
             'transaction_id' => $transaction->id,
             'amount' => $transaction->amount,
             'currency' => $transaction->currency,
@@ -178,7 +174,7 @@ class PaymentLinkControllerTest extends TestCase
         $response = $this->getJson('/api/payment/' . $paymentLink->payment_link_id);
 
         $response->assertStatus(200);
-        $this->assertEquals('34af91ea-8baf-4d7f-a05c-5c932ec3b641', $response->json('payment.paymentLinkId'));
+        $this->assertEquals('aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', $response->json('payment.paymentLinkId'));
         $this->assertEquals(10.00, $response->json('payment.amount'));
         $this->assertEquals('PLN', $response->json('payment.currency'));
         $this->assertEquals('SUCCESS', $response->json('transaction.status'));
@@ -190,14 +186,11 @@ class PaymentLinkControllerTest extends TestCase
     public function test_confirm_payment_link_returns_null(): void
     {
         $payload = [
-            'amount' => 10.00,
-            'currency' => 'PLN',
+            'paymentLinkId' => 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+            'paymentMethod' => 'TPAY',
+            'fullname' => 'Jan Kowalski',
+            'email' => 'test@email.com'
         ];
-
-        PaymentLinkServiceFasade::shouldReceive('createPaymentFromLink')
-            ->once()
-            ->with($payload)
-            ->andReturn(null);
 
         $response = $this->postJson('/api/confirm-payment-link', $payload);
 
@@ -207,23 +200,26 @@ class PaymentLinkControllerTest extends TestCase
             ]);
     }
 
-    public function test_confirm_payment_link_returns_successful_response_when_transaction_is_created(): void
+    #[DataProvider('confirmPaymentLinkProvider')]
+    public function test_confirm_payment_link_returns_successful_response_when_transaction_is_created(string $serviceClass, array $payload, array $mockResponse, array $paymentLinkDb): void
     {
-        $dto = new PaymentLinkTransactionDto(
-            '34af91ea-8baf-4d7f-a05c-5c932ec3b641',
-            '34af91ea-8baf-4d7f-a05c-5c932ec3b641'
-        );
+        $mock = new MockHandler($mockResponse);
+        $handlerStack = HandlerStack::create($mock);
+        $client = new Client(['handler' => $handlerStack]);
 
-        PaymentLinkServiceFasade::shouldReceive('createPaymentFromLink')
-            ->once()
-            ->andReturn($dto);
+        $service = new $serviceClass($client);
+        $this->app->bind($serviceClass, fn() => $service);
 
-        $response = $this->postJson('/api/confirm-payment-link');
+        Merchant::factory()->create([
+            'id' => 1
+        ]);
+        PaymentLink::factory()->create($paymentLinkDb);
 
-        $response->assertStatus(200)
-            ->assertJson([
-                'link' => $dto->paymentLink,
-            ]);
+        $response = $this->postJson('/api/confirm-payment-link', $payload);
+
+        $response
+            ->assertStatus(200)
+            ->assertJsonStructure(['link']);
     }
 
     public static function createPaymentLinkPayloadAndApiKey(): array
@@ -238,6 +234,89 @@ class PaymentLinkControllerTest extends TestCase
                     'returnUrl' => 'https://return.url'
                 ],
                 'testowy-api-key'
+            ]
+        ];
+    }
+
+    public static function confirmPaymentLinkProvider(): array
+    {
+        return [
+            'TPAY' => [
+                TPayService::class,
+                [
+                    'paymentLinkId' => 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+                    'paymentMethod' => 'TPAY',
+                    'fullname' => 'Jan Kowalski',
+                    'email' => 'test@email.com'
+                ],
+                [
+                    new Response(200, [], json_encode(['access_token' => 'mock-token'], JSON_THROW_ON_ERROR)),
+                    new Response(200, [], json_encode([
+                        'transactionId' => '12345',
+                        'hiddenDescription' => '8fe22800-d5ed-40e3-8dda-5289bc29e314',
+                        'payer' => [
+                            'name' => 'Jan Kowalski',
+                            'email' => 'jankowalski@gmail.com',
+                        ],
+                        'amount' => 100,
+                        'currency' => 'PLN',
+                        'transactionPaymentUrl' => 'https://example.com/link',
+                    ], JSON_THROW_ON_ERROR)),
+                ],
+                [
+                    'payment_link_id' => 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+                    'transaction_id' => null,
+                    'merchant_id' => 1,
+                    'amount' => 10.00,
+                    'currency' => 'PLN',
+                    'expires_at' => (new \DateTimeImmutable())->add(new \DateInterval('PT1H'))
+                ]
+            ],
+            'PAYNOW' => [
+                PaynowService::class,
+                [
+                    'paymentLinkId' => 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+                    'paymentMethod' => 'PAYNOW',
+                    'fullname' => 'Jan Kowalski',
+                    'email' => 'test@email.com'
+                ],
+                [
+                    new Response(201, [], json_encode([
+                        'paymentId' => '12345',
+                        'redirectUrl' => 'https://example.com/link',
+                    ], JSON_THROW_ON_ERROR)),
+                ],
+                [
+                    'payment_link_id' => 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+                    'transaction_id' => null,
+                    'merchant_id' => 1,
+                    'amount' => 10.00,
+                    'currency' => 'PLN',
+                    'expires_at' => (new \DateTimeImmutable())->add(new \DateInterval('PT1H'))
+                ]
+            ],
+            'NODA' => [
+                NodaService::class,
+                [
+                    'paymentLinkId' => 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+                    'paymentMethod' => 'NODA',
+                    'fullname' => 'Jan Kowalski',
+                    'email' => 'test@email.com'
+                ],
+                [
+                    new Response(200, [], json_encode([
+                        'id' => 'test-12345',
+                        'url' => 'https://example.com/link'
+                    ], JSON_THROW_ON_ERROR)),
+                ],
+                [
+                    'payment_link_id' => 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+                    'transaction_id' => null,
+                    'merchant_id' => 1,
+                    'amount' => 10.00,
+                    'currency' => 'USD',
+                    'expires_at' => (new \DateTimeImmutable())->add(new \DateInterval('PT1H'))
+                ]
             ]
         ];
     }

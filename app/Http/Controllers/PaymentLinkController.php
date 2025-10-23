@@ -63,10 +63,6 @@ class PaymentLinkController
     {
         $paymentLink = PaymentLink::where('payment_link_id', $paymentLinkId)->first();
 
-        Log::info('[CONTROLLER][PAYMENT-DETAILS][START] Received create payment details request', [
-            'paymentLinkId' => $paymentLinkId
-        ]);
-
         if (!$paymentLink) {
             Log::info('[CONTROLLER][PAYMENT-DETAILS][ERROR] PaymentLink not found', [
                 'paymentLinkId' => $paymentLinkId
@@ -87,10 +83,6 @@ class PaymentLinkController
 
         $transactionDetailsFromLink = Transaction::where('id', $paymentLink->transaction_id)->first();
 
-        Log::info('[CONTROLLER][PAYMENT-DETAILS][COMPLETED] Payment link was created successfully', [
-            'paymentLinkId' => $paymentLinkId
-        ]);
-
         return response()->json([
             'payment' => [
                 'paymentLinkId' => $paymentLink->payment_link_id,
@@ -98,10 +90,10 @@ class PaymentLinkController
                 'currency' => $paymentLink->currency,
             ],
             'transaction' => $transactionDetailsFromLink === null ? null : [
-                'status' => $transactionDetailsFromLink->status ?? null,
-                'amount' => $transactionDetailsFromLink->amount ?? null,
-                'currency' => $transactionDetailsFromLink->currency ?? null,
-                'paymentMethod' => $transactionDetailsFromLink->payment_method ?? null
+                'status' => $transactionDetailsFromLink->status,
+                'amount' => $transactionDetailsFromLink->amount,
+                'currency' => $transactionDetailsFromLink->currency,
+                'paymentMethod' => $transactionDetailsFromLink->payment_method
             ]
         ]);
     }
@@ -114,7 +106,7 @@ class PaymentLinkController
             'paymentLinkBody' => $paymentLinkBody
         ]);
 
-        $createTransactionFromPaymentLinkDto = $this->paymentLinkService->createPaymentFromLink($paymentLinkBody);
+        $createTransactionFromPaymentLinkDto = $this->paymentLinkService->createTransactionForPaymentLink($paymentLinkBody);
 
         if ($createTransactionFromPaymentLinkDto === null) {
             Log::error('[CONTROLLER][PAYMENT-LINK][ERROR] Payment link service returned null for payment link transaction creation');

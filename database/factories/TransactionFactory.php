@@ -21,7 +21,7 @@ class TransactionFactory extends Factory
     {
         return [
             'transaction_uuid' => $this->faker->uuid(),
-            'transactions_id' => $this->faker->unique()->numberBetween(1000, 9999),
+            'transaction_id' => $this->faker->unique()->numberBetween(1000, 9999),
             'merchant_id' => Merchant::factory(),
             'refund_code' => null,
             'amount' => $this->faker->randomFloat(2, 1, 1000),
@@ -30,6 +30,7 @@ class TransactionFactory extends Factory
             'currency' => 'PLN',
             'status' => TransactionStatus::SUCCESS,
             'notification_url' => $this->faker->url(),
+            'return_url' => $this->faker->url(),
             'payment_method' => PaymentMethod::PAYMENT_METHOD_TPAY->value,
         ];
     }

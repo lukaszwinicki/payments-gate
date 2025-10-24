@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  *
  * @property int $id
  * @property string $transaction_uuid
- * @property string $transactions_id
+ * @property string $transaction_id
  * @property string $amount
  * @property string $name
  * @property string $email
@@ -47,8 +47,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereRefundCode($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereReturnUrl($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereStatus($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereTransactionId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereTransactionUuid($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereTransactionsId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereUpdatedAt($value)
  * @mixin \Eloquent
  */
@@ -57,7 +57,7 @@ class Transaction extends Model
     use HasFactory;
     protected $fillable = [
         'transaction_uuid',
-        'transactions_id',
+        'transaction_id',
         'merchant_id',
         'refund_code',
         'amount',

@@ -22,7 +22,7 @@ class NodaServiceTest extends TestCase
         $transactionBody = [
             'amount' => 100,
             'email' => 'test@example.com',
-            'currency' => 'PLN', 
+            'currency' => 'PLN',
             'name' => 'Test User',
             'paymentMethod' => 'NODA',
         ];
@@ -49,6 +49,8 @@ class NodaServiceTest extends TestCase
             'currency' => 'USD',
             'name' => 'Jan Kowalski',
             'paymentMethod' => 'NODA',
+            'notificationUrl' => 'https://test.com',
+            'returnUrl' => 'https://test.com'
         ];
 
         $mockedResponse = [

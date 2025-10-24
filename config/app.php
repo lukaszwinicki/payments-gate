@@ -65,7 +65,7 @@ return [
     |
     */
 
-    'timezone' => 'UTC',
+    'timezone' => 'Europe/Warsaw',
 
     /*
     |--------------------------------------------------------------------------
@@ -148,5 +148,7 @@ return [
     ],
 
     'api_docs_url' => env('API_DOCS_URL'),
-    'returnUrl' => env('RETURN_URL')
+    'returnUrl' => env('RETURN_URL'),
+    'frontendUrl' => env('FRONTEND_URL'),
+    'paymentsGatewayBaseUrl' => env('PAYMENTS_GATEWAY_BASE_URL')
 ];

@@ -85,6 +85,9 @@ class NodaService implements PaymentMethodInterface
             $transactionBody['email'],
             $transactionBody['currency'],
             $transactionBody['amount'],
+            $transactionBody['notificationUrl'],
+            $transactionBody['returnUrl'],
+            $paymentMethod,
             $nodaResponseBody['url']
         );
 

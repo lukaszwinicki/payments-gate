@@ -37,9 +37,11 @@ class TPayServiceTest extends TestCase
         $transactionBody = [
             'amount' => 100,
             'email' => 'test@example.com',
-            'currency' => 'USD', 
+            'currency' => 'USD',
             'name' => 'Test User',
             'paymentMethod' => 'TPAY',
+            'notificationUrl' => 'https://notification.url',
+            'returnUrl' => 'https://return.url'
         ];
 
         $mock = new MockHandler([
@@ -65,6 +67,8 @@ class TPayServiceTest extends TestCase
             'currency' => 'PLN',
             'name' => 'Jan Kowalski',
             'paymentMethod' => 'TPAY',
+            'notificationUrl' => 'https://notification.url',
+            'returnUrl' => 'https://return.url'
         ];
 
         $mockedResponse = [
@@ -104,6 +108,8 @@ class TPayServiceTest extends TestCase
         $this->assertEquals('jankowalski@example.com', $createTransactionDto->email);
         $this->assertEquals(100, $createTransactionDto->amount);
         $this->assertEquals('PLN', $createTransactionDto->currency);
+        $this->assertEquals('https://notification.url', $createTransactionDto->notificationUrl);
+        $this->assertEquals('https://return.url', $createTransactionDto->returnUrl);
         $this->assertEquals('https://example.com/link', $createTransactionDto->link);
     }
 
@@ -220,7 +226,7 @@ class TPayServiceTest extends TestCase
     public function test_refund_success(): void
     {
         Transaction::factory()->create([
-            'transactions_id' => 12345,
+            'transaction_id' => 12345,
             'transaction_uuid' => 'valid-uuid',
             'status' => TransactionStatus::SUCCESS,
         ]);
@@ -252,7 +258,7 @@ class TPayServiceTest extends TestCase
 
         $transaction = Transaction::where('transaction_uuid', $refundBody['transactionUuid'])->first();
         $this->assertNotNull($transaction);
-        $this->assertEquals('12345', $transaction->transactions_id);
+        $this->assertEquals('12345', $transaction->transaction_id);
         $this->assertEquals('valid-uuid', $transaction->transaction_uuid);
         $this->assertInstanceOf(RefundPaymentDto::class, $result);
         $this->assertEquals(TransactionStatus::REFUND_PENDING, $result->status);
@@ -261,7 +267,7 @@ class TPayServiceTest extends TestCase
     public function test_refund_failed(): void
     {
         Transaction::factory()->create([
-            'transactions_id' => 12345,
+            'transaction_id' => 12345,
             'transaction_uuid' => 'valid-uuid',
             'status' => TransactionStatus::SUCCESS,
         ]);
@@ -291,7 +297,7 @@ class TPayServiceTest extends TestCase
     public function test_refund_transaction_status_is_refund(): void
     {
         $transaction = Transaction::factory()->create([
-            'transactions_id' => 12345,
+            'transaction_id' => 12345,
             'transaction_uuid' => 'valid-uuid',
             'status' => TransactionStatus::REFUND_SUCCESS,
         ]);

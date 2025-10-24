@@ -2,6 +2,8 @@
 
 namespace App\Dtos;
 
+use App\Enums\PaymentMethod;
+
 readonly class CreateTransactionDto
 {
     public function __construct(
@@ -11,6 +13,9 @@ readonly class CreateTransactionDto
         public string $email,
         public string $currency,
         public string $amount,
+        public string $notificationUrl,
+        public string $returnUrl,
+        public PaymentMethod $paymentMethod,
         public string $link
     ) {
     }

@@ -4,13 +4,13 @@ namespace Tests\Feature;
 
 use App\Enums\TransactionStatus;
 use App\Facades\TransactionSignatureFacade;
-use App\Jobs\ProcessWebhookJob;
 use App\Models\Merchant;
 use App\Models\Transaction;
 use App\Models\User;
-use App\Services\NodaService;
 use App\Services\PaynowService;
 use App\Services\TPayService;
+use App\Services\NodaService;
+use App\Jobs\ProcessWebhookJob;
 use GuzzleHttp\Client;
 use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;
@@ -32,25 +32,53 @@ class TransactionControllerTest extends TestCase
         parent::tearDown();
     }
 
-    #[DataProvider('createTransactionBodyProviderWithInvalidData')]
-    public function test_create_transaction_with_invalid_data(array $transactionBody): void
+    #[DataProvider('createTransactionPayloadAndApiKey')]
+    public function test_create_transaction_returns_400_if_api_key_is_missing(array $payload): void
+    {
+        $response = $this
+            ->withHeaders([
+                'x-api-key' => ''
+            ])->postJson('/api/create-transaction', $payload);
+
+        $response->assertStatus(401)
+            ->assertJson([
+                'error' => 'Unauthorized'
+            ]);
+    }
+
+    #[DataProvider('createTransactionFailsValidation')]
+    public function test_create_transaction_fails_validation(): void
     {
         Merchant::factory()->create();
 
-        $response = $this->withHeaders([
-            'x-api-key' => 'testowy-api-key'
-        ])->postJson('/api/create-transaction', $transactionBody);
+        $payload = [
+            'email' => 'test@email.com',
+            'name' => "Test Test",
+            'currency' => "PLN",
+            'paymentMethod' => "PAYNOW",
+            'notificationUrl' => "https://notofication.url",
+            'returnUrl' => "https://return.url"
+        ];
+
+        $apiKey = 'testowy-api-key';
+
+        $response = $this
+            ->withHeaders([
+                'x-api-key' => $apiKey,
+            ])
+            ->postJson('/api/create-transaction', $payload);
+
         $response->assertStatus(422);
+
         $response->assertJsonStructure([
             'error' => [
                 'amount',
-                'name'
-            ]
+            ],
         ]);
     }
 
     #[DataProvider('createTransactionFailedProvider')]
-    public function test_create_transaction_failed(array $transactionBody, string $serviceClass, array $mockResponse): void
+    public function test_create_transaction_returns_null(array $payload, string $serviceClass, array $mockResponse): void
     {
         $mock = new MockHandler($mockResponse);
         $handlerStack = HandlerStack::create($mock);
@@ -59,15 +87,38 @@ class TransactionControllerTest extends TestCase
         $service = new $serviceClass($client);
         $this->app->bind($serviceClass, fn() => $service);
 
-        Merchant::factory()->create();
+        $merchant = Merchant::factory()->create();
 
-        $response = $this->withHeaders([
-            'x-api-key' => 'testowy-api-key'
-        ])->postJson('/api/create-transaction', $transactionBody);
-        $response->assertStatus(500);
-        $response->assertJson([
-            'error' => 'The transaction could not be completed'
-        ]);
+        $response = $this
+            ->withHeaders([
+                'x-api-key' => $merchant->api_key
+            ])->postJson('/api/create-transaction', $payload);
+        $response->assertStatus(500)
+            ->assertJson([
+                'error' => 'The transaction could not be completed'
+            ]);
+    }
+
+    #[DataProvider('paymentGatewaysTransactionLifecycleProvider')]
+    public function test_create_transaction_returns_successful_response_when_transaction_is_created(string $serviceClass, array $payload, array $mockResponse): void
+    {
+        $mock = new MockHandler($mockResponse);
+        $handlerStack = HandlerStack::create($mock);
+        $client = new Client(['handler' => $handlerStack]);
+
+        $service = new $serviceClass($client);
+        $this->app->bind($serviceClass, fn() => $service);
+
+        $merchant = Merchant::factory()->create();
+        $response = $this
+            ->withoutMiddleware()
+            ->withHeaders([
+                'x-api-key' => $merchant->api_key
+            ])->postJson('/api/create-transaction', $payload);
+
+        $response
+            ->assertStatus(200)
+            ->assertJsonStructure(['link', 'transactionUuid']);
     }
 
     #[DataProvider('paymentGatewaysTransactionLifecycleProvider')]
@@ -123,7 +174,7 @@ class TransactionControllerTest extends TestCase
     }
 
     #[DataProvider('confirmTransactionStatusRefundProvider')]
-    public function test_confirm_transaction_with_status_refund($headers, $webHookBody, $paymentMethod): void
+    public function test_confirm_transaction_with_status_refund(array $headers, array $webHookBody, string $paymentMethod): void
     {
         Transaction::factory()->create([
             'transaction_uuid' => $webHookBody['tr_crc']
@@ -251,7 +302,7 @@ class TransactionControllerTest extends TestCase
         ]);
 
         User::factory()->create([
-            'merchant_id' => 1
+            'merchant_id' => 1,
         ]);
 
         $transaction = Transaction::factory()->create([
@@ -311,7 +362,7 @@ class TransactionControllerTest extends TestCase
     }
 
     #[DataProvider('refundTransactionIsSuccessProvider')]
-    public function test_refund_payment_is_success(string $uuid, array $factoryBody, $mockResponse, $serviceClass, $refundBody): void
+    public function test_refund_payment_is_success(string $uuid, array $factoryBody, array $mockResponse, string $serviceClass, array $refundBody): void
     {
         Merchant::factory()->create([
             'id' => 1,
@@ -354,29 +405,20 @@ class TransactionControllerTest extends TestCase
         $this->assertEquals(TransactionStatus::REFUND_PENDING, $transaction->status);
     }
 
-    public static function createTransactionBodyProviderWithInvalidData(): array
+    public static function createTransactionPayloadAndApiKey(): array
     {
         return [
-            'TPAY' => [
+            'payload' => [
                 [
-                    'email' => 'jankowalski@gmail.com',
-                    'paymentMethod' => 'TPAY',
-                    'notificationUrl' => 'https://notification.url',
-                ]
-            ],
-            'PAYNOW' => [
-                [
-                    'email' => 'jankowalski@gmail.com',
-                    'paymentMethod' => 'PAYNOW',
-                    'notificationUrl' => 'https://notification.url'
-                ]
-            ],
-            'NODA' => [
-                [
-                    'email' => 'jankowalski@gmail.com',
-                    'paymentMethod' => 'NODA',
-                    'notificationUrl' => 'https://notification.url'
-                ]
+                    'amount' => 10.00,
+                    'email' => "test@gmail.com",
+                    'name' => "Test Test",
+                    'currency' => "PLN",
+                    'paymentMethod' => "PAYNOW",
+                    'notificationUrl' => "https://notification.url",
+                    'returnUrl' => "https://return.url"
+                ],
+                'testowy-api-key'
             ]
         ];
     }
@@ -396,7 +438,7 @@ class TransactionControllerTest extends TestCase
                 ],
                 TPayService::class,
                 [
-                    new Response(200, [], json_encode(['access_token' => 'mock-token'])),
+                    new Response(200, [], json_encode(['access_token' => 'mock-token'], JSON_THROW_ON_ERROR)),
                     new Response(500, [], '')
                 ]
             ],
@@ -433,6 +475,33 @@ class TransactionControllerTest extends TestCase
         ];
     }
 
+    public static function createTransactionFailsValidation(): array
+    {
+        return [
+            'TPAY' => [
+                [
+                    'email' => 'jankowalski@gmail.com',
+                    'paymentMethod' => 'TPAY',
+                    'notificationUrl' => 'https://notification.url',
+                ]
+            ],
+            'PAYNOW' => [
+                [
+                    'email' => 'jankowalski@gmail.com',
+                    'paymentMethod' => 'PAYNOW',
+                    'notificationUrl' => 'https://notification.url'
+                ]
+            ],
+            'NODA' => [
+                [
+                    'email' => 'jankowalski@gmail.com',
+                    'paymentMethod' => 'NODA',
+                    'notificationUrl' => 'https://notification.url'
+                ]
+            ]
+        ];
+    }
+
     public static function paymentGatewaysTransactionLifecycleProvider(): array
     {
         return [
@@ -448,7 +517,7 @@ class TransactionControllerTest extends TestCase
                     'notificationUrl' => 'https://notification.url',
                 ],
                 [
-                    new Response(200, [], json_encode(['access_token' => 'mock-token'])),
+                    new Response(200, [], json_encode(['access_token' => 'mock-token'], JSON_THROW_ON_ERROR)),
                     new Response(200, [], json_encode([
                         'transactionId' => '12345',
                         'hiddenDescription' => '8fe22800-d5ed-40e3-8dda-5289bc29e314',
@@ -459,7 +528,7 @@ class TransactionControllerTest extends TestCase
                         'amount' => 100,
                         'currency' => 'PLN',
                         'transactionPaymentUrl' => 'https://example.com/link',
-                    ])),
+                    ], JSON_THROW_ON_ERROR)),
                 ],
                 [
                     'x-jws-signature' => ['eyJhbGciOiJSUzI1NiIsIng1dSI6Imh0dHBzOlwvXC9zZWN1cmUuc2FuZGJveC50cGF5LmNvbVwveDUwOVwvbm90aWZpY2F0aW9ucy1qd3MucGVtIn0..HalI3jDvtvVGCn5wSiUUTH4ZSjAbbSEo2nbcI_PfqJIVgnH_vW6RMLEfOxfDQLkpZZoGNwgYg9fqw3h3zBt11qPDXn_m79iNnBe0-stLk4TPBDUEATEULIkpjLolFm727kNtZs2cxyfZm03SwtVOC7WrOQTEXqCZXtrGhONy-Sz_j4duG-haiAOvKLAbCJC4eRQvjxfX0LaUWhqscmJitZrJjb_l7THT-cA5Pq7FA4zbJMgbAHzRE6we41fFeQXal4Je3s5_KwbDzdXwpaYCo2MhOZTBEaUsMdvZHwKfKPYW7WcLhhqG_-tNaa8ZNTHrh8_B0wvKet4ReBPhAAfjwFjRQ2t4hX8Ukx0OYuTBz2LRh9Z-Gy7YQWR7-da67kwdTlKIfhtvUfwtu62PgV5LkVX9bll_27mKwZfwJvESqJoO4AUV-_Xn7g4sLNG_CkPc7QDk4TIXnKZuj19uvwEW4UVZlXmL4R2FaGJqmEPspBljPhte9Ez-avc1QmfV0WS4AF94GRMBy5XO-1ubiUZq9x6xlUIlwZ3Du7lz71uNpLHoZu2aBTm8ZnsB9zrVkfN1ZVuxEQ7Kx723bJdTH9KerT0fjTa7j9fKMBmwL64XqZmLMRAJmeo_iIfXVgYtdDunHOSYzat16QXbqDLykCxIHUcQ0UnJAai8LlAbGq66q2g'],
@@ -494,7 +563,7 @@ class TransactionControllerTest extends TestCase
                     new Response(201, [], json_encode([
                         'paymentId' => '12345',
                         'redirectUrl' => 'https://example.com/link',
-                    ])),
+                    ], JSON_THROW_ON_ERROR)),
                 ],
                 [
                     'signature' => ['bM4K/b1PFP3ic2K+rf3j1UnF7yU0bqt9dJjQvhJ4qMw=']
@@ -520,7 +589,7 @@ class TransactionControllerTest extends TestCase
                     new Response(200, [], json_encode([
                         'id' => 'test-12345',
                         'url' => 'https://example.com/link'
-                    ])),
+                    ], JSON_THROW_ON_ERROR)),
                 ],
                 [
                     // Signature is included in $webHookBody; no signature is sent via headers.
@@ -534,6 +603,7 @@ class TransactionControllerTest extends TestCase
             ]
         ];
     }
+
     public static function confirmTransactionWithWebookBodyOrSignatureInvalid(): array
     {
         return [
@@ -600,7 +670,7 @@ class TransactionControllerTest extends TestCase
         return [
             'TPAY' => [
                 [
-                    new Response(200, [], json_encode(['access_token' => 'mock-token'])),
+                    new Response(200, [], json_encode(['access_token' => 'mock-token'], JSON_THROW_ON_ERROR)),
                     new Response(400, [], ''),
                 ],
                 TPayService::class
@@ -625,8 +695,8 @@ class TransactionControllerTest extends TestCase
                     'merchant_id' => 1
                 ],
                 [
-                    new Response(200, [], json_encode(['access_token' => 'mock-token'])),
-                    new Response(200, [], json_encode(['result' => 'success', 'status' => 'refund'])),
+                    new Response(200, [], json_encode(['access_token' => 'mock-token'], JSON_THROW_ON_ERROR)),
+                    new Response(200, [], json_encode(['result' => 'success', 'status' => 'refund'], JSON_THROW_ON_ERROR)),
                 ],
                 TPayService::class,
                 [
@@ -641,7 +711,7 @@ class TransactionControllerTest extends TestCase
                     'merchant_id' => 1
                 ],
                 [
-                    new Response(201, [], json_encode(['refundId' => '12345', 'status' => 'PENDING'])),
+                    new Response(201, [], json_encode(['refundId' => '12345', 'status' => 'PENDING'], JSON_THROW_ON_ERROR)),
                 ],
                 PaynowService::class,
                 [

@@ -68,7 +68,7 @@ onMounted(async () => {
   }
 
   try {
-    const res = await fetch(`/api/transactions/${uuid}/status`);
+    const res = await fetch(`/api/transaction/${uuid}/status`);
     if (!res.ok) throw new Error('Błąd sieci');
     const data = await res.json();
     status.value = data.status || 'ERROR';

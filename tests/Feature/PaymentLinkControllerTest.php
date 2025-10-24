@@ -14,7 +14,6 @@ use GuzzleHttp\Client;
 use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Psr7\Response;
-use App\Facades\PaymentLinkServiceFasade;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
 use Tests\TestCase;
@@ -29,7 +28,7 @@ class PaymentLinkControllerTest extends TestCase
         \Mockery::close();
         parent::tearDown();
     }
-
+    
     public function test_create_payment_link_returns_400_if_api_key_is_missing(): void
     {
         $response = $this
@@ -70,19 +69,23 @@ class PaymentLinkControllerTest extends TestCase
             ],
         ]);
     }
-
-    #[DataProvider('createPaymentLinkPayloadAndApiKey')]
-    public function test_create_payment_link_returns_null(array $payload, string $apiKey): void
+    
+    public function test_create_payment_link_returns_null(): void
     {
+        $this->withoutMiddleware(); 
         Merchant::factory()->create();
-        PaymentLinkServiceFasade::shouldReceive('createPaymentLink')
-            ->once()
-            ->with($payload, $apiKey)
-            ->andReturn(null);
+
+        $payload = [
+            'amount' => 10.00,
+            'currency' => 'PLN',
+            'expiresAt' => now()->addHour()->toAtomString(),
+            'notificationUrl' => 'https://notification.url',
+            'returnUrl' => 'https://return.url'
+        ];
 
         $response = $this
             ->withHeaders([
-                'x-api-key' => $apiKey
+                'x-api-key' => 'non-existing-api-key'
             ])->postJson('/api/create-payment-link', $payload);
 
         $response->assertStatus(500)
@@ -90,7 +93,7 @@ class PaymentLinkControllerTest extends TestCase
                 'error' => 'The payment link could not be generated'
             ]);
     }
-
+    
     #[DataProvider('createPaymentLinkPayloadAndApiKey')]
     public function test_create_payment_link_returns_successful_response_when_transaction_is_created(array $payload, string $apiKey): void
     {

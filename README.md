@@ -23,6 +23,13 @@ Payments Gate is a robust and secure payment gateway solution designed to facili
   - [🔹 TPay](#-tpay)
   - [🔹 Paynow](#-paynow)
   - [🔹 Noda](#-noda)
+- [🔗 Payment Links](#-payment-links)
+  - [⚙️ How It Works](#️-how-it-works)
+  - [🧱 API Endpoints](#-api-endpoints)
+  - [📦 Example Request](#-example-request)
+  - [📬 Example Response](#-example-response)
+  - [🔒 Security Notes](#-security-notes)
+  - [🧭 Payment Link Flow](#-payment-link-flow)
 - [🔐 Authentication – API Key & Secret Key](#authentication--api-key--secret-key)
   - [🔐 How Authentication Works](#-how-authentication-works)
   - [🔧 Getting Your Keys](#-getting-your-keys)
@@ -35,12 +42,11 @@ Payments Gate is a robust and secure payment gateway solution designed to facili
 - [🔐 Webhook Signature Verification](#-webhook-signature-verification)
   - [✅ How the Signature Is Generated](#-how-the-signature-is-generated)
 - [🏁 Getting Started](#-getting-started)
-- [📄 License](#-license)
 
 
 ## ✨ Features
 
-
+- Payment Links – Generate shareable payment URLs for your customers
 - Secure payment processing
 - RESTful API for easy integration
 - Transaction history and reporting
@@ -48,7 +54,6 @@ Payments Gate is a robust and secure payment gateway solution designed to facili
 - Detailed logging and error handling
 - Modular integration of payment processors via dedicated service classes
 
-  
 ## 🛠️ Technology Stack
 
 - **Language:** PHP 8.2
@@ -153,6 +158,89 @@ Noda is a modern Open Banking payment gateway that enables direct bank payments 
 ---
 
 Each of these operators has been integrated into **Payments Gate** to provide users with diverse and convenient payment options.
+
+## 🔗 Payment Links
+
+The **Payment Links** feature allows merchants to generate secure, one-time URLs that customers can use to complete payments without direct API integration. It’s ideal for quick payments.
+
+### ⚙️ How It Works
+
+1. The merchant creates a payment link via the API or through the admin panel.
+2. A unique, signed URL is generated for example:
+   https://payments-gate.onrender.com/payment/123e4567-e89b-12d3-a456-426614174000
+4. The customer opens the link and completes payment using one of the integrated providers (**TPay**, **Paynow**, or **Noda**).
+5. Once the payment is completed, the system updates the transaction status and sends a webhook notification to the merchant’s application.
+
+### 🧱 API Endpoints
+
+| Method | Endpoint | Description |
+|--------|-----------|-------------|
+| `POST` | `/api/create-payment-link` | Create a new payment link |
+| `POST` | `/api/confirm-payment-link` | Create transaction for generated payment link |
+| `GET` | `/api/payment/{payment_link_id}` | Retrieve details about a specific payment link |
+
+### 📦 Example Request
+
+```http
+POST /api/create-payment-link
+Host: https://payments-gate.onrender.com
+x-api-key: your-api-key
+Content-Type: application/json
+
+{
+    "amount": 249.99,
+    "currency": "PLN",
+    "expiresAt": "2025-10-31 00:00:00",
+    "notificationUrl": "https://payments-gate.onrender.com/notification-url/",
+    "returnUrl": "https://payments-gate.onrender.com/webhooks/return-url",
+}
+```
+
+### 📬 Example Response
+
+```json
+{
+    "paymentLink": "https://payments-gate.onrender.com/payments/123e4567-e89b-12d3-a456-426614174000",
+}
+```
+
+### 🔒 Security Notes
+
+- Each payment link is  tied to the merchant’s **API Key**.
+- Protection against making multiple payments from one link.
+- Links automatically **expire** after a configurable time window.  
+- **Expired** links reject all payment attempts.
+- Webhooks for link-based payments follow the **same flow** as standard transactions.
+
+### 🧭 Payment Link Flow
+
+```mermaid
+sequenceDiagram
+    participant M as Merchant
+    participant API as Payments Gate API
+    participant C as Customer
+    participant P as Payment Provider
+
+    %% Create payment link
+    M->>API: POST /api/create-payment-link
+    API-->>M: Returns payment link URL
+
+    %% Merchant sends link to customer
+    M->>C: Sends payment link URL
+
+    %% Customer opens payment link and confirms payment
+    C->>API: Opens payment link and submits payment data
+    API->>API: Process POST /api/confirm-payment-link
+    API-->>C: Returns redirect URL to selected payment provider
+
+    %% Customer completes payment with the provider
+    C->>P: Complete payment
+    P-->>API: Returns payment status
+
+    %% Webhook to merchant
+    API-->>M: Sends webhook with transaction status
+```
+
 
 ## Authentication – API Key & Secret Key
 
@@ -289,7 +377,3 @@ $signature = hash_hmac('sha256', $transaction_uuid . $payment_method, $merchantS
   ```bash
   php artisan serve
   ```
-
-## 📄 License
-
-This project is licensed under the MIT License.

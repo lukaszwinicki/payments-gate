@@ -28,7 +28,7 @@ class PaymentLinkControllerTest extends TestCase
         \Mockery::close();
         parent::tearDown();
     }
-    
+
     public function test_create_payment_link_returns_400_if_api_key_is_missing(): void
     {
         $response = $this
@@ -69,10 +69,10 @@ class PaymentLinkControllerTest extends TestCase
             ],
         ]);
     }
-    
+
     public function test_create_payment_link_returns_null(): void
     {
-        $this->withoutMiddleware(); 
+        $this->withoutMiddleware();
         Merchant::factory()->create();
 
         $payload = [
@@ -93,7 +93,7 @@ class PaymentLinkControllerTest extends TestCase
                 'error' => 'The payment link could not be generated'
             ]);
     }
-    
+
     #[DataProvider('createPaymentLinkPayloadAndApiKey')]
     public function test_create_payment_link_returns_successful_response_when_transaction_is_created(array $payload, string $apiKey): void
     {
@@ -112,6 +112,16 @@ class PaymentLinkControllerTest extends TestCase
         $frontendUrl = Config::get('app.frontendUrl');
 
         $this->assertStringStartsWith($frontendUrl . '/payment/', $json['paymentLink']);
+    }
+
+    public function test_payment_details_invalid_payment_link(): void
+    {
+        $response = $this->getJson('/api/payment/aaaaaaaa-bbbb-cccc-dddd');
+
+        $response->assertStatus(500)
+            ->assertJson([
+                'error' => 'Invalid payment link'
+            ]);
     }
 
     public function test_payment_details_payment_link_not_found(): void

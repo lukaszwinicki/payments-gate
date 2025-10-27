@@ -8,6 +8,7 @@ use App\Services\PaymentLinkValidatorService;
 use App\Services\PaymentLinkService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
 
 class PaymentLinkController
@@ -61,6 +62,15 @@ class PaymentLinkController
 
     public function paymentDetails(string $paymentLinkId): JsonResponse
     {
+        if (!Str::isUuid($paymentLinkId)) {
+            Log::error('[CONTROLLER][PAYMENT-DETAILS][ERROR] Invalid UUID', [
+                'paymentLinkId' => $paymentLinkId
+            ]);
+            return response()->json([
+                'error' => 'Invalid payment link'
+            ], 500);
+        }
+
         $paymentLink = PaymentLink::where('payment_link_id', $paymentLinkId)->first();
 
         if (!$paymentLink) {

@@ -103,7 +103,8 @@ class PaymentLinkController
                 'status' => $transactionDetailsFromLink->status,
                 'amount' => $transactionDetailsFromLink->amount,
                 'currency' => $transactionDetailsFromLink->currency,
-                'paymentMethod' => $transactionDetailsFromLink->payment_method
+                'paymentMethod' => $transactionDetailsFromLink->payment_method,
+                'returnUrl' => $transactionDetailsFromLink->return_url
             ]
         ]);
     }

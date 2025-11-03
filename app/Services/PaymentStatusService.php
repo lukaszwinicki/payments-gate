@@ -14,6 +14,9 @@ class PaymentStatusService
         }
         return [
             'status' => $transaction->status->value,
+            'amount' => $transaction->amount,
+            'currency' => $transaction->currency,
+            'paymentMethod' => $transaction->payment_method,
             'returnUrl' => $transaction->return_url,
         ];
     }

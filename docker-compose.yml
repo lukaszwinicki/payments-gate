@@ -14,6 +14,7 @@ services:
       SERVICE_TAGS: dev
     depends_on:
       - db
+      - redis
     working_dir: /var/www
     volumes:
       - .:/var/www
@@ -34,6 +35,15 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    networks:
+      - app-network
+
+  redis:
+    image: redis:7
+    container_name: redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
     networks:
       - app-network
 

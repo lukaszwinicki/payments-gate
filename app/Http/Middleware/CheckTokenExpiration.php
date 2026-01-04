@@ -2,13 +2,11 @@
 
 namespace App\Http\Middleware;
 
-use App\Models\Merchant;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Illuminate\Support\Facades\Auth;
 
-class ApiKeyMiddleware
+class CheckTokenExpiration
 {
     /**
      * Handle an incoming request.
@@ -17,15 +15,18 @@ class ApiKeyMiddleware
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $apiKey = $request->header('X-API-KEY');
-        $merchant = Merchant::where('api_key', $apiKey)->first();
-
-        if (!$apiKey || $merchant === null) {
-            return response()->json(['error' => 'Unauthorized'], 401);
+        if ($request->hasHeader('X-API-KEY')) {
+            return $next($request);
         }
 
-        Auth::login($merchant);
-
+        $token = $request->user()?->currentAccessToken();
+        
+        if ($token && $token->expires_at && now()->greaterThan($token->expires_at)) {
+            $token->delete();
+            return response()->json([
+                'message' => 'Token expired',
+            ], 401);
+        }
         return $next($request);
     }
 }

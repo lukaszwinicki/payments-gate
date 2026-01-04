@@ -3,7 +3,8 @@
 use App\Exceptions\RefundNotSupportedException;
 use App\Exceptions\UnexpectedStatusCodeException;
 use App\Exceptions\UnsupportedCurrencyException;
-use App\Http\Middleware\ApiKeyMiddleware;
+use App\Http\Middleware\AuthOrApiKey;
+use App\Http\Middleware\CheckTokenExpiration;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -18,7 +19,8 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->alias([
-            'api-key' => ApiKeyMiddleware::class
+            'auth.or.apikey' => AuthOrApiKey::class,
+            'token.expiration' => CheckTokenExpiration::class
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

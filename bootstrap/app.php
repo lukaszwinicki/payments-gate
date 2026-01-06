@@ -1,5 +1,6 @@
 <?php
 
+use App\Exceptions\InvalidCredentialsException;
 use App\Exceptions\RefundNotSupportedException;
 use App\Exceptions\UnexpectedStatusCodeException;
 use App\Exceptions\UnsupportedCurrencyException;
@@ -40,5 +41,11 @@ return Application::configure(basePath: dirname(__DIR__))
             return response()->json([
                 'error' => $e->getMessage()
             ], 400);
+        });
+
+        $exceptions->render(function (InvalidCredentialsException $e, Request $request) {
+            return response()->json([
+                'error' => $e->getMessage()
+            ], 401);
         });
     })->create();

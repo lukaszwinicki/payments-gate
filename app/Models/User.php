@@ -12,8 +12,6 @@ use Spatie\Permission\Traits\HasRoles;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 
-
-
 /**
  * 
  *
@@ -88,6 +86,11 @@ class User extends Authenticatable implements MustVerifyEmail, FilamentUser
     public function merchant(): BelongsTo
     {
         return $this->belongsTo(Merchant::class);
+    }
+
+    public function getMerchantId(): ?int
+    {
+        return $this->merchant->id;
     }
 
     protected function casts(): array

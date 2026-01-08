@@ -42,4 +42,9 @@ class Merchant extends Authenticatable
     {
         return $this->hasMany(Transaction::class);
     }
+
+    public function getMerchantId(): int
+    {
+        return $this->id;
+    }
 }

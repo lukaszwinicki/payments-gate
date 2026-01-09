@@ -42,7 +42,7 @@ class TransactionControllerTest extends TestCase
 
         $response->assertStatus(401)
             ->assertJson([
-                'error' => 'Unauthorized'
+                'message' => 'Unauthorized'
             ]);
     }
 

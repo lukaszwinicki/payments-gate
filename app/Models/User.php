@@ -88,11 +88,6 @@ class User extends Authenticatable implements MustVerifyEmail, FilamentUser
         return $this->belongsTo(Merchant::class);
     }
 
-    public function getMerchantId(): ?int
-    {
-        return $this->merchant->id;
-    }
-
     protected function casts(): array
     {
         return [

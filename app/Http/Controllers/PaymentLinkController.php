@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\MerchantRequest;
 use App\Models\PaymentLink;
 use App\Models\Transaction;
 use App\Services\PaymentLinkValidatorService;
@@ -19,20 +20,16 @@ class PaymentLinkController
     ) {
     }
 
-    public function createPaymentLink(Request $request): JsonResponse
+    public function createPaymentLink(MerchantRequest $request): JsonResponse
     {
         $paymentLinkBody = $request->all();
-        $apiKey = $request->header('x-api-key');
+        $apiKey = $request->header('X-API-KEY');
+        $merchant = $request->merchant();
 
         Log::info('[CONTROLLER][CREATE][PAYMENT-LINK][START] Received create payment link request', [
             'transactionBody' => $paymentLinkBody,
             'apiKey' => $apiKey
         ]);
-
-        if (!$apiKey) {
-            Log::error('[CONTROLLER][CREATE][PAYMENT-LINK][ERROR] Missing required header: X-API-KEY');
-            return response()->json(['error' => 'Unauthorized missing X-API-KEY'], 401);
-        }
 
         $paymentLinkBodyRequestValidator = $this->validator->validate($paymentLinkBody);
 
@@ -43,7 +40,10 @@ class PaymentLinkController
             return response()->json(['error' => $paymentLinkBodyRequestValidator->errors()], 422);
         }
 
-        $paymentLink = $this->paymentLinkService->createPaymentLink($paymentLinkBody, $apiKey);
+        $paymentLink = $this->paymentLinkService->createPaymentLink(
+            $paymentLinkBody,
+            $merchant
+        );
 
         if ($paymentLink === null) {
             Log::error('[CONTROLLER][CREATE][PAYMENT-LINK][ERROR] Payment link service returned null');
@@ -112,7 +112,7 @@ class PaymentLinkController
     public function confirmPaymentLink(Request $request): JsonResponse
     {
         $paymentLinkBody = $request->all();
-
+        
         Log::info('[CONTROLLER][CREATE][CONFIRM-PAYMENT-LINK][START] Received create transaction from payment link request', [
             'paymentLinkBody' => $paymentLinkBody
         ]);

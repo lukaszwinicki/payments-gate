@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Dtos\CreatePaymentLinkDto;
 use App\Dtos\PaymentLinkTransactionDto;
 use App\Factories\PaymentLinkFactory;
+use App\Http\Requests\MerchantRequest;
 use App\Models\Transaction;
 use App\Models\Merchant;
 use App\Models\PaymentLink;
@@ -22,17 +23,9 @@ class PaymentLinkService
     ) {
     }
 
-    public function createPaymentLink(array $paymentLinkBody, string $apiKey): ?CreatePaymentLinkDto
+    public function createPaymentLink(array $paymentLinkBody, Merchant $merchant): ?CreatePaymentLinkDto
     {
         $uuid = (string) Str::uuid();
-        $merchant = Merchant::where('api_key', $apiKey)->first();
-
-        if (!$merchant) {
-            Log::error('[SERVICE][CREATE][PAYMENT-LINK][ERROR] Merchant not found', [
-                'apiKey' => $apiKey,
-            ]);
-            return null;
-        }
 
         Log::info('[SERVICE][CREATE][PAYMENT-LINK][START] Starting create process', [
             'paymentLinkId' => $uuid,
@@ -122,7 +115,7 @@ class PaymentLinkService
             'returnUrl' => $paymentLinkData->return_url
         ];
 
-        $createTransactionDto = $this->createTransactionService->createTransaction($paymentLinkRequest, $merchant->api_key);
+        $createTransactionDto = $this->createTransactionService->createTransaction($paymentLinkRequest, $merchant);
 
         if ($createTransactionDto === null) {
             Log::error('[SERVICE][CREATE][TRANSACTION-PAYMENT-LINK][ERROR] CreateTrasactionDto is null');

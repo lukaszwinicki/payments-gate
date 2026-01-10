@@ -18,9 +18,9 @@ use App\Factories\TransactionFactory;
 use App\Factory\PaymentMethodFactory;
 use App\Enums\TransactionStatus;
 use App\Enums\PaymentMethod;
+use App\Models\Merchant;
 use App\Models\Notification;
 use App\Models\Transaction;
-use App\Models\Merchant;
 use Illuminate\Support\Facades\Log;
 
 class TransactionService
@@ -31,12 +31,13 @@ class TransactionService
     ) {
     }
 
-    public function createTransaction(array $transactionBody, string $apiKey): ?CreateTransactionDto
+    public function createTransaction(array $transactionBody, Merchant $merchant): ?CreateTransactionDto
     {
         Log::info('[SERVICE][CREATE-TRANSACTION][START] Received create payment request', [
             'paymentMethod' => $transactionBody['paymentMethod'],
             'transactionBody' => $transactionBody,
-            'apiKey' => $apiKey
+            'merchant_id' => $merchant->id,
+            'apiKey' => $merchant->api_key
         ]);
 
         $paymentService = $this->paymentMethodFactory->getInstanceByPaymentMethod(PaymentMethod::tryFrom($transactionBody['paymentMethod']));
@@ -49,17 +50,10 @@ class TransactionService
             return null;
         }
 
-        $merchantId = Merchant::where('api_key', $apiKey)->first();
-
-        if ($merchantId === null) {
-            Log::error('[SERVICE][CREATE-TRANSACTION][ERROR] MerchantId returned null');
-            return null;
-        }
-
         $transaction = $this->transactionFactory->make();
         $transaction->transaction_uuid = $createTransactionDto->uuid;
         $transaction->transaction_id = $createTransactionDto->transactionId;
-        $transaction->merchant_id = $merchantId->id;
+        $transaction->merchant_id = $merchant->id;
         $transaction->amount = $createTransactionDto->amount;
         $transaction->name = $createTransactionDto->name;
         $transaction->email = $createTransactionDto->email;

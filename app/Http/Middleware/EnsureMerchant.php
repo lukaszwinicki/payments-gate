@@ -2,6 +2,8 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Merchant;
+use App\Models\User;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -15,13 +17,19 @@ class EnsureMerchant
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $user = $request->user();
+        $principal = $request->user();
 
-        if (!$user || !$user->getMerchantId()) {
+        $merchant = match(true) {
+            $principal instanceof Merchant => $principal,
+            $principal instanceof User => $principal->merchant()->first(),
+            default => null
+        };
+
+        if(!$merchant) {
             return response()->json(['message' => 'Unauthorized'], 401);
         }
 
-        $request->merge(['merchant_id' => $user->getMerchantId()]);
+        $request->attributes->set('merchant', $merchant);
 
         return $next($request);
     }

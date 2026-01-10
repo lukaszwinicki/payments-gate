@@ -2,50 +2,58 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\MerchantRequest;
 use App\Services\TransactionService;
 use Illuminate\Http\JsonResponse;
 
 class DashboardController extends Controller
 {
-    public function getRecentTransaction(TransactionService $service): JsonResponse
+    public function getRecentTransaction(TransactionService $service, MerchantRequest $request): JsonResponse
     {
-        $transactions = $service->getRecentTransactions(request()->merchant_id);
-        return response()->json($transactions);
+        return response()->json(
+            $service->getRecentTransactions($request->merchantId())
+        );
     }
 
-    public function getPaymentMethodShare(TransactionService $service): JsonResponse
+    public function getPaymentMethodShare(TransactionService $service, MerchantRequest $request): JsonResponse
     {
-        $paymentMethodShare = $service->getPaymentMethodShare(request()->merchant_id);
-        return response()->json($paymentMethodShare);
+        return response()->json(
+            $service->getPaymentMethodShare($request->merchantId())
+        );
     }
 
-    public function getTransactionTotal(TransactionService $service): JsonResponse
+    public function getTransactionTotal(TransactionService $service, MerchantRequest $request): JsonResponse
     {
-        $transationTotal = $service->getTotalCount(request()->merchant_id);
-        return response()->json($transationTotal);
+        return response()->json(
+            $service->getTotalCount($request->merchantId())
+        );
     }
 
-    public function getTransactionsBalances(TransactionService $service): JsonResponse
+    public function getTransactionsBalances(TransactionService $service, MerchantRequest $request): JsonResponse
     {
-        $transactionBalances = $service->getTransactionsBalances(request()->merchant_id);
-        return response()->json($transactionBalances);
+        return response()->json(
+            $service->getTransactionsBalances($request->merchantId())
+        );
     }
 
-    public function getFailedCount(TransactionService $service): JsonResponse
+    public function getFailedCount(TransactionService $service, MerchantRequest $request): JsonResponse
     {
-        $transactionRejected = $service->getFailedCount(request()->merchant_id);
-        return response()->json($transactionRejected);
+        return response()->json(
+            $service->getFailedCount($request->merchantId())
+        );
     }
 
-    public function getMerchantTransactions(TransactionService $service): JsonResponse
+    public function getMerchantTransactions(TransactionService $service, MerchantRequest $request): JsonResponse
     {
-        $transactions = $service->getMerchantTransactions(request()->merchant_id);
-        return response()->json($transactions);
+        return response()->json(
+            $service->getMerchantTransactions($request->merchantId())
+        );
     }
 
-    public function getTransactionNotifications(TransactionService $service): JsonResponse
+    public function getTransactionNotifications(TransactionService $service, MerchantRequest $request): JsonResponse
     {
-        $notifications = $service->getTransactionNotifications(request()->merchant_id);
-        return response()->json($notifications);
+        return response()->json(
+            $service->getTransactionNotifications($request->merchantId())
+        );
     }
 }

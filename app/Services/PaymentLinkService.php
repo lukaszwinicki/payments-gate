@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Dtos\CreatePaymentLinkDto;
 use App\Dtos\PaymentLinkTransactionDto;
 use App\Factories\PaymentLinkFactory;
-use App\Http\Requests\MerchantRequest;
 use App\Models\Transaction;
 use App\Models\Merchant;
 use App\Models\PaymentLink;

@@ -60,15 +60,15 @@ class AuthService
         return $this->tokenService->create($user);
     }
 
-    public function sendResetLink(SendResetLinkDto $sendResetLinkDto): void
+    public function sendResetLink(SendResetLinkDto $dto)
     {
-        $status = Password::sendResetLink([
-            'email' => $sendResetLinkDto->email
-        ]);
+        $status = Password::sendResetLink(['email' => $dto->email]);
 
-        if ($status !== Password::RESET_LINK_SENT) {
-            throw new ResetPasswordException('Unable to send reset link.');
+        if ($status === Password::RESET_LINK_SENT) {
+            return $status;
         }
+
+        throw new ResetPasswordException('Failed to send reset link');
     }
 
     public function resetPassword(ResetPasswordDto $resetPasswordDto): void

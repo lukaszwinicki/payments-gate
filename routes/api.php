@@ -4,7 +4,6 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\PaymentLinkController;
 use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\RefundBffController;
 use App\Http\Controllers\TransactionController;
 use Illuminate\Support\Facades\Route;
 
@@ -33,7 +32,6 @@ Route::middleware(['auth.or.apikey','token.expiration', 'merchant'])->group(func
     Route::post('/create-transaction', [TransactionController::class, 'createTransaction']);
     Route::post('/create-payment-link', [PaymentLinkController::class, 'createPaymentLink']);
     Route::post('/refund-payment', [TransactionController::class, 'refundPayment']);
-    Route::post('/refund', [RefundBffController::class, 'refund']);
 
     Route::get('/transactions', [DashboardController::class, 'getMerchantTransactions']);
     Route::get('/transactions/recent', [DashboardController::class, 'getRecentTransaction']);

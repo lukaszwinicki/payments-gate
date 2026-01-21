@@ -1,9 +1,12 @@
 <?php
 
+use App\Exceptions\InvalidCredentialsException;
 use App\Exceptions\RefundNotSupportedException;
 use App\Exceptions\UnexpectedStatusCodeException;
 use App\Exceptions\UnsupportedCurrencyException;
-use App\Http\Middleware\ApiKeyMiddleware;
+use App\Http\Middleware\AuthOrApiKey;
+use App\Http\Middleware\CheckTokenExpiration;
+use App\Http\Middleware\EnsureMerchant;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -18,7 +21,9 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->alias([
-            'api-key' => ApiKeyMiddleware::class
+            'auth.or.apikey' => AuthOrApiKey::class,
+            'token.expiration' => CheckTokenExpiration::class,
+            'merchant' => EnsureMerchant::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
@@ -38,5 +43,11 @@ return Application::configure(basePath: dirname(__DIR__))
             return response()->json([
                 'error' => $e->getMessage()
             ], 400);
+        });
+
+        $exceptions->render(function (InvalidCredentialsException $e, Request $request) {
+            return response()->json([
+                'error' => $e->getMessage()
+            ], 401);
         });
     })->create();

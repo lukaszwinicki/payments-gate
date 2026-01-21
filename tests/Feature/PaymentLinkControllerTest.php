@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Merchant;
 use App\Models\PaymentLink;
 use App\Models\Transaction;
+use App\Services\PaymentLinkService;
 use App\Services\TPayService;
 use App\Services\PaynowService;
 use App\Services\NodaService;
@@ -29,16 +30,21 @@ class PaymentLinkControllerTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_create_payment_link_returns_400_if_api_key_is_missing(): void
+    public function test_create_payment_link_returns_401_when_merchant_is_missing(): void
     {
-        $response = $this
-            ->withHeaders([
-                'x-api-key' => ''
-            ])->postJson('/api/create-payment-link');
+        $payload = [
+            'amount' => 10.00,
+            'currency' => 'PLN',
+            'expiresAt' => now()->addHour()->toAtomString(),
+            'notificationUrl' => 'https://notification.url',
+            'returnUrl' => 'https://return.url'
+        ];
+
+        $response = $this->postJson('/api/create-payment-link', $payload);
 
         $response->assertStatus(401)
             ->assertJson([
-                'error' => 'Unauthorized'
+                'message' => 'Unauthorized'
             ]);
     }
 
@@ -70,10 +76,9 @@ class PaymentLinkControllerTest extends TestCase
         ]);
     }
 
-    public function test_create_payment_link_returns_null(): void
+    public function test_create_payment_link_returns_500_when_service_returns_null(): void
     {
-        $this->withoutMiddleware();
-        Merchant::factory()->create();
+        $merchant = Merchant::factory()->create();
 
         $payload = [
             'amount' => 10.00,
@@ -83,9 +88,15 @@ class PaymentLinkControllerTest extends TestCase
             'returnUrl' => 'https://return.url'
         ];
 
+        $this->mock(PaymentLinkService::class, function ($mock) {
+            $mock->shouldReceive('createPaymentLink')
+                ->once()
+                ->andReturn(null);
+        });
+
         $response = $this
             ->withHeaders([
-                'x-api-key' => 'non-existing-api-key'
+                'x-api-key' => $merchant->api_key
             ])->postJson('/api/create-payment-link', $payload);
 
         $response->assertStatus(500)

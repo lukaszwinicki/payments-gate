@@ -6,6 +6,7 @@ use App\Enums\PaymentMethod;
 use App\Enums\TransactionStatus;
 use App\Facades\TransactionSignatureFacade;
 use App\Factory\PaymentMethodFactory;
+use App\Http\Requests\MerchantRequest;
 use App\Jobs\ProcessWebhookJob;
 use App\Models\Transaction;
 use App\Services\PaymentStatusService;
@@ -16,6 +17,7 @@ use Illuminate\Http\Request;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Str;
 use InvalidArgumentException;
 use OpenApi\Attributes as OA;
 
@@ -80,21 +82,16 @@ class TransactionController extends Controller
         ]
     )]
 
-    public function createTransaction(Request $request): JsonResponse
+    public function createTransaction(MerchantRequest $request): JsonResponse
     {
         $transactionBody = $request->all();
-        $apiKey = $request->header('x-api-key');
+        $merchant = $request->merchant();
 
         Log::info('[CONTROLLER][CREATE][START] Received create payment request', [
             'paymentMethod' => $transactionBody['paymentMethod'],
             'transactionBody' => $transactionBody,
-            'apiKey' => $apiKey
+            'apiKey' => $request->header('X-API-KEY') ?? $merchant->api_key
         ]);
-
-        if (!$apiKey) {
-            Log::error('[CONTROLLER][CREATE][ERROR] Missing required header: X-API-KEY');
-            return response()->json(['error' => 'Unauthorized'], 401);
-        }
 
         $transactionPayloadValidator = $this->transactionValidatorService->validate($transactionBody);
 
@@ -105,7 +102,7 @@ class TransactionController extends Controller
             return response()->json(['error' => $transactionPayloadValidator->errors()], 422);
         }
 
-        $createTransactionDto = $this->createTransactionService->createTransaction($transactionBody, $apiKey);
+        $createTransactionDto = $this->createTransactionService->createTransaction($transactionBody, $merchant);
 
         if ($createTransactionDto === null) {
             Log::error('[CONTROLLER][CREATE][ERROR] Payment service returned null for transaction creation', [
@@ -213,24 +210,41 @@ class TransactionController extends Controller
             ),
         ]
     )]
-    public function refundPayment(Request $request): JsonResponse
+    public function refundPayment(MerchantRequest $request): JsonResponse
     {
         $refundBody = $request->all();
-        $headers = $request->header();
-        $transaction = Transaction::where('transaction_uuid', $refundBody['transactionUuid'])->first();
+        $merchant = $request->merchant();
+        $signature = $request->header('signature');
+        $transactionUuid = $refundBody['transactionUuid'] ?? null;
 
-        if (empty($refundBody['transactionUuid']) || !$transaction) {
-            Log::error('[CONTROLLER][REFUND][ERROR] Missing transactionUuid in request or transaction not found', [
-                'transactionUuid' => $refundBody['transactionUuid'],
+        if (!$transactionUuid || !Str::isUuid($transactionUuid)) {
+            Log::error('[CONTROLLER][REFUND][FAILED] Invalid or missing transaction UUID', [
+                'transactionUuid' => $transactionUuid,
             ]);
-            return response()->json(['error' => 'Missing or invalid data.'], 400);
+            return response()->json([
+                'error' => 'Invalid or missing transaction UUID'
+            ], 422);
         }
 
-        if ($headers['signature'][0] !== TransactionSignatureFacade::calculateSignature($transaction)) {
+        $transaction = Transaction::where('transaction_uuid', $transactionUuid)->first();
+
+        if (!$transaction) {
+            Log::error('[CONTROLLER][REFUND][ERROR] Transaction not found', [
+                'transactionUuid' => $transactionUuid,
+            ]);
+            return response()->json(['error' => 'Transaction not found.'], 404);
+        }
+
+        $calculatedSignature = TransactionSignatureFacade::calculateSignature(
+            $transaction->transaction_uuid,
+            $merchant
+        );
+
+        if (!$signature || $signature !== $calculatedSignature) {
             Log::error('[CONTROLLER][REFUND][ERROR] Missing or invalid signature.', [
-                'transactionUuid' => $refundBody['transactionUuid'],
-                'signatureFromHeader' => $headers['signature'][0],
-                'calculatedSignature' => TransactionSignatureFacade::calculateSignature($transaction)
+                'transactionUuid' => $transactionUuid,
+                'signatureFromHeader' => $signature,
+                'calculatedSignature' => $calculatedSignature
             ]);
             return response()->json(['error' => 'Missing or invalid signature.'], 400);
         }
@@ -242,7 +256,7 @@ class TransactionController extends Controller
 
         Log::info('[CONTROLLER][REFUND][START] Received refund payment request', [
             'paymentMethod' => $transaction->payment_method->value,
-            'transactionUuid' => $refundBody['transactionUuid'],
+            'transactionUuid' => $transactionUuid,
         ]);
 
         if ($transaction->status === TransactionStatus::REFUND_SUCCESS) {
@@ -269,26 +283,26 @@ class TransactionController extends Controller
             $transaction->save();
 
             Log::info('[CONTROLLER][REFUND][REFUND_PENDING] Transaction set REFUND_PENDING', [
-                'paymnetMethod' => $transaction->payment_method->value,
+                'paymentMethod' => $transaction->payment_method->value,
                 'transactionUuid' => $transaction->transaction_uuid
             ]);
 
             ProcessWebhookJob::dispatch($transaction);
 
             Log::info('[CONTROLLER][REFUND][NOTIFICATION]', [
-                'paymnetMethod' => $transaction->payment_method->value,
+                'paymentMethod' => $transaction->payment_method->value,
                 'transactionUuid' => $transaction->transaction_uuid
             ]);
         } else {
             Log::error('[CONTORLLER][REFUND][ERROR] Refund payment not completed', [
-                'paymnetMethod' => $transaction->payment_method->value,
+                'paymentMethod' => $transaction->payment_method->value,
                 'transactionUuid' => $transaction->transaction_uuid,
             ]);
             return response()->json(['error' => 'Refund payment not completed.'], 500);
         }
 
         Log::info('[CONTROLLER][REFUND][COMPLETED] Transaction is waiting for confirmation', [
-            'paymnetMethod' => $transaction->payment_method->value,
+            'paymentMethod' => $transaction->payment_method->value,
             'transactionUuid' => $transaction->transaction_uuid,
         ]);
 

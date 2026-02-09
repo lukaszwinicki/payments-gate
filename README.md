@@ -1,5 +1,5 @@
 
-<img src="https://i.imgur.com/ep9QWZH.png" width="1000" alt="Logo"/>
+<img src=".github/assets/logo.png" width="1000" alt="Logo"/>
 
 ## 📝 Overview
 
@@ -110,15 +110,15 @@ public static function getInstanceByPaymentMethod(?PaymentMethod $paymentMethod)
 ```
 ### ⚙️ Payment Processing
 
-![Payment Diagram](https://i.imgur.com/nw047vq.png)
+![Payment Diagram](.github/assets/payment-processing.png)
 
 ### 🔄 Refund Processing
 
-![Refund Diagram](https://i.imgur.com/ylroDPs.png)
+![Refund Diagram](.github/assets/refund-processing.png)
 
 ### 🗺️ Payment Status Map
 
-![Status Diagram](https://i.imgur.com/wuCVYSq.png)
+![Status Diagram](.github/assets/payment-status-map.png)
 
 
 | Status           | Description                                           | Possible Transitions           |

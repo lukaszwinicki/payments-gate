@@ -11,6 +11,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
+use OpenApi\Attributes as OA;
 
 class PaymentLinkController
 {
@@ -20,6 +21,59 @@ class PaymentLinkController
     ) {
     }
 
+    #[OA\Post(
+        path: "/api/create-payment-link",
+        tags: ["Payment Links"],
+        summary: "Create payment link",
+        parameters: [
+            new OA\Parameter(
+                name: "X-API-KEY",
+                in: "header",
+                required: true,
+                description: "Merchant API key",
+                schema: new OA\Schema(
+                    type: "string",
+                    example: "api-key"
+                )
+            ),
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ["amount", "currency", "notificationUrl", "returnUrl", "expiresAt"],
+                properties: [
+                    new OA\Property(property: "amount", type: "number", format: "float", example: 199.99),
+                    new OA\Property(property: "currency", type: "string", example: "PLN"),
+                    new OA\Property(property: "notificationUrl", type: "string", format: "uri", example: "https://test.payment-gate.pl/callback"),
+                    new OA\Property(property: "returnUrl", type: "string", format: "uri", example: "https://test.payment-gate.pl/return-url"),
+                    new OA\Property(property: "expiresAt", type: "string", format: "date-time", example: "2026-03-01 12:00:00"),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: "Payment link created",
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(
+                            property: "paymentLink",
+                            type: "string",
+                            example: "http://payments-gate.pl/payment/17a4186a-9ba1-493d-aae6-d9c2918e7085"
+                        ),
+                    ]
+                )
+            ),
+            new OA\Response(
+                response: 422,
+                description: "Validation error"
+            ),
+            new OA\Response(
+                response: 500,
+                description: "Payment link generation failed"
+            ),
+        ]
+    )]
     public function createPaymentLink(MerchantRequest $request): JsonResponse
     {
         $paymentLinkBody = $request->all();
@@ -60,6 +114,58 @@ class PaymentLinkController
         ]);
     }
 
+    #[OA\Get(
+        path: "/api/payment/{payment_link_id}",
+        tags: ["Payment Links"],
+        summary: "Get payment link details",
+        parameters: [
+            new OA\Parameter(
+                name: "paymentLinkId",
+                in: "path",
+                required: true,
+                description: "Payment link UUID",
+                schema: new OA\Schema(
+                    type: "string",
+                    format: "uuid",
+                    example: "c6e2c816-3f5e-417b-9e91-a794223aa903"
+                )
+            ),
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: "Payment link details",
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(
+                            property: "payment",
+                            type: "object",
+                            properties: [
+                                new OA\Property(property: "paymentLinkId", type: "string", example: "d0947206-f142-44d1-af78-7b6b865f7394"),
+                                new OA\Property(property: "amount", type: "number", format: "float", example: 199.99),
+                                new OA\Property(property: "currency", type: "string", example: "PLN"),
+                            ]
+                        ),
+                        new OA\Property(
+                            property: "transaction",
+                            type: "object",
+                            nullable: true,
+                            properties: [
+                                new OA\Property(property: "status", type: "string", example: "SUCCESS"),
+                                new OA\Property(property: "amount", type: "number", format: "float", example: 199.99),
+                                new OA\Property(property: "currency", type: "string", example: "PLN"),
+                                new OA\Property(property: "paymentMethod", type: "string", example: "TPAY"),
+                                new OA\Property(property: "returnUrl", type: "string", format: "uri", example: "https://test.payment-gate.pl/return-url"),
+                            ]
+                        ),
+                    ]
+                )
+            ),
+            new OA\Response(response: 404, description: "Payment link not found"),
+            new OA\Response(response: 410, description: "Payment link expired"),
+            new OA\Response(response: 500, description: "Invalid payment link"),
+        ]
+    )]
     public function paymentDetails(string $paymentLinkId): JsonResponse
     {
         if (!Str::isUuid($paymentLinkId)) {
@@ -112,7 +218,7 @@ class PaymentLinkController
     public function confirmPaymentLink(Request $request): JsonResponse
     {
         $paymentLinkBody = $request->all();
-        
+
         Log::info('[CONTROLLER][CREATE][CONFIRM-PAYMENT-LINK][START] Received create transaction from payment link request', [
             'paymentLinkBody' => $paymentLinkBody
         ]);

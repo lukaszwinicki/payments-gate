@@ -38,7 +38,7 @@ class TransactionController extends Controller
         path: "/api/create-transaction",
         tags: ["Transactions"],
         summary: "Create new transaction",
-        description: "Obsługiwane metody płatności: TPAY, PAYNOW, NODA.",
+        description: "Supported payment methods: TPAY, PAYNOW, NODA.",
         requestBody: new OA\RequestBody(
             required: true,
             content: new OA\JsonContent(
@@ -309,6 +309,78 @@ class TransactionController extends Controller
         return response()->json(['success' => 'Refund', 'transactionUuid' => $transaction->transaction_uuid], 200);
     }
 
+    #[OA\Get(
+        path: "/api/transaction/{uuid}/status",
+        tags: ["Transactions"],
+        summary: "Get transaction status by UUID",
+        parameters: [
+
+            new OA\Parameter(
+                name: "uuid",
+                in: "path",
+                required: true,
+                description: "Transaction UUID",
+                schema: new OA\Schema(
+                    type: "string",
+                    example: "c6e2c816-3f5e-417b-9e91-a794223aa903"
+                )
+            ),
+        ],
+        responses: [
+
+            new OA\Response(
+                response: 200,
+                description: "Transaction status",
+                content: new OA\JsonContent(
+                    type: "object",
+                    properties: [
+                        new OA\Property(
+                            property: "status",
+                            type: "string",
+                            example: "SUCCESS"
+                        ),
+                        new OA\Property(
+                            property: "amount",
+                            type: "number",
+                            format: "float",
+                            example: 199.99
+                        ),
+                        new OA\Property(
+                            property: "currency",
+                            type: "string",
+                            example: "PLN"
+                        ),
+                        new OA\Property(
+                            property: "paymentMethod",
+                            type: "string",
+                            example: "TPAY"
+                        ),
+                        new OA\Property(
+                            property: "returnUrl",
+                            type: "string",
+                            format: "uri",
+                            example: "https://test.payment-gate.pl/return-url"
+                        ),
+                    ]
+                )
+            ),
+
+            new OA\Response(
+                response: 404,
+                description: "Transaction not found",
+                content: new OA\JsonContent(
+                    type: "object",
+                    properties: [
+                        new OA\Property(
+                            property: "message",
+                            type: "string",
+                            example: "Transaction not found"
+                        ),
+                    ]
+                )
+            ),
+        ]
+    )]
     public function getStatus(string $uuid): JsonResponse
     {
         $status = $this->paymentStatusService->getStatusByUuid($uuid);

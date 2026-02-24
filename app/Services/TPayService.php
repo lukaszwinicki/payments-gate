@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\PaymentMethod;
+use App\Exceptions\RefundUnexpectedStatusException;
 use App\Facades\TPaySignatureValidatorFacade;
 use App\Dtos\ConfirmTransactionDto;
 use App\Dtos\CreateTransactionDto;
@@ -148,10 +149,10 @@ class TPayService implements PaymentMethodInterface
         $transaction = Transaction::where('transaction_uuid', $refundBody['transactionUuid'])->first();
 
         if ($transaction->status !== TransactionStatus::SUCCESS && $transaction->status !== TransactionStatus::REFUND_FAIL) {
-            Log::error('[SERVICE][REFUND][TPAY][ERROR] Unexpected refund transaction status', [
-                'status' => $transaction->status->value
-            ]);
-            return null;
+            throw new RefundUnexpectedStatusException(
+                'Refund not allowed for transaction status: ' . $transaction->status->value,
+                422
+            );
         }
 
         try {
@@ -169,11 +170,12 @@ class TPayService implements PaymentMethodInterface
         }
 
         if ($responseRefund->getStatusCode() !== 200) {
-            Log::error('[SERVICE][REFUND][TPAY][ERROR] Transaction refund failed - unexpected status code', [
-                'statusCode' => $responseRefund->getStatusCode(),
-                'responseBody' => $responseRefund->getBody()->getContents(),
-            ]);
-            return null;
+            $body = json_decode($responseRefund->getBody()->getContents(), true);
+
+            $errorMessage = $body['errors'][0]['errorMessage']
+                ?? 'Refund failed';
+
+            throw new RefundUnexpectedStatusException($errorMessage, 400);
         }
 
         $responseBodyRefund = json_decode($responseRefund->getBody()->getContents(), true);

@@ -276,7 +276,12 @@ class TransactionController extends Controller
         }
 
         $paymentService = $this->paymentMethodFactory->getInstanceByPaymentMethod($transaction->payment_method);
-        $refundPaymentDto = $paymentService->refund($refundBody);
+
+        try {
+            $refundPaymentDto = $paymentService->refund($refundBody);
+        } catch (\Throwable $e) {
+            return response()->json(['error' => $e->getMessage()], $e->getCode() ?: 500);
+        }
 
         if ($refundPaymentDto !== null && $refundPaymentDto->status === TransactionStatus::REFUND_PENDING) {
             $transaction->status = TransactionStatus::REFUND_PENDING;
@@ -293,20 +298,11 @@ class TransactionController extends Controller
                 'paymentMethod' => $transaction->payment_method->value,
                 'transactionUuid' => $transaction->transaction_uuid
             ]);
-        } else {
-            Log::error('[CONTORLLER][REFUND][ERROR] Refund payment not completed', [
-                'paymentMethod' => $transaction->payment_method->value,
-                'transactionUuid' => $transaction->transaction_uuid,
-            ]);
-            return response()->json(['error' => 'Refund payment not completed.'], 500);
+
+            return response()->json(['success' => 'Refund', 'transactionUuid' => $transaction->transaction_uuid], 200);
+
         }
-
-        Log::info('[CONTROLLER][REFUND][COMPLETED] Transaction is waiting for confirmation', [
-            'paymentMethod' => $transaction->payment_method->value,
-            'transactionUuid' => $transaction->transaction_uuid,
-        ]);
-
-        return response()->json(['success' => 'Refund', 'transactionUuid' => $transaction->transaction_uuid], 200);
+        return response()->json(['error' => 'Refund payment not completed.'], 500);
     }
 
     #[OA\Get(

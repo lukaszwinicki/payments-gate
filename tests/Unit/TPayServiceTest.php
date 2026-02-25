@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Enums\TransactionStatus;
+use App\Exceptions\RefundUnexpectedStatusException;
 use App\Facades\TPaySignatureValidatorFacade;
 use App\Dtos\CreateTransactionDto;
 use App\Dtos\ConfirmTransactionDto;
@@ -287,30 +288,35 @@ class TPayServiceTest extends TestCase
         $handlerStack = HandlerStack::create($mockRequest);
         $client = new Client(['handler' => $handlerStack]);
         $paymentService = new TPayService($client);
-        $refundBody = [
+
+        $this->expectException(RefundUnexpectedStatusException::class);
+        $this->expectExceptionCode(400);
+        $this->expectExceptionMessage('Refund failed');
+
+        $paymentService->refund([
             'transactionUuid' => 'valid-uuid'
-        ];
-        $result = $paymentService->refund($refundBody);
-        $this->assertNull($result);
+        ]);
     }
 
     public function test_refund_transaction_status_is_refund(): void
     {
-        $transaction = Transaction::factory()->create([
+        Transaction::factory()->create([
             'transaction_id' => 12345,
             'transaction_uuid' => 'valid-uuid',
             'status' => TransactionStatus::REFUND_SUCCESS,
         ]);
 
         $paymentService = new TPayService();
-        $refundBody = [
+
+        $this->expectException(RefundUnexpectedStatusException::class);
+        $this->expectExceptionCode(422);
+        $this->expectExceptionMessage(
+            'Refund not allowed for transaction status: REFUND_SUCCESS'
+        );
+
+        $paymentService->refund([
             'transactionUuid' => 'valid-uuid'
-        ];
-        $result = $paymentService->refund($refundBody);
-        $this->assertNull($result);
-        $transaction = Transaction::where('transaction_uuid', $refundBody['transactionUuid'])->first();
-        $this->assertNotNull($transaction);
-        $this->assertEquals(TransactionStatus::REFUND_SUCCESS, $transaction->status);
+        ]);
     }
 
     public function test_get_token_success(): void

@@ -18,7 +18,7 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::post('/forgot-password', [AuthController::class, 'sendResetLink']);
 Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 
-Route::middleware(['auth.or.apikey','token.expiration', 'merchant'])->group(function () {
+Route::middleware(['auth.or.apikey', 'token.expiration', 'merchant'])->group(function () {
 
     Route::get('/user', function (Request $request) {
         return $request->user();
@@ -28,9 +28,11 @@ Route::middleware(['auth.or.apikey','token.expiration', 'merchant'])->group(func
         $request->user()->currentAccessToken()->delete();
         return response()->json(['message' => 'Logged out']);
     });
-    
-    Route::post('/create-transaction', [TransactionController::class, 'createTransaction']);
-    Route::post('/create-payment-link', [PaymentLinkController::class, 'createPaymentLink']);
+
+    Route::post('/create-transaction', [TransactionController::class, 'createTransaction'])
+        ->middleware('throttle:create-transaction');
+    Route::post('/create-payment-link', [PaymentLinkController::class, 'createPaymentLink'])
+        ->middleware('throttle:create-payment-link');
     Route::post('/refund-payment', [TransactionController::class, 'refundPayment']);
 
     Route::get('/transactions', [DashboardController::class, 'getMerchantTransactions']);

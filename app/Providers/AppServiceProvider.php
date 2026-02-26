@@ -9,10 +9,13 @@ use App\Services\PaynowService;
 use App\Services\TPaySignatureValidator;
 use App\Services\TransactionSignatureService;
 use App\Auth\ApiKeyGuard;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Cache\RateLimiting\Limit;
 use GuzzleHttp\Client;
 
 class AppServiceProvider extends ServiceProvider
@@ -77,5 +80,33 @@ class AppServiceProvider extends ServiceProvider
         if (config('app.env') === 'production') {
             URL::forceScheme('https');
         }
+
+        $this->configureRateLimiting();
     }
+
+    private function configureRateLimiting(): void
+    {
+        RateLimiter::for('create-transaction', function (Request $request) {
+            return Limit::perMinute(5)
+                ->by($request->user()?->id ?: $request->ip())
+                ->response(function (Request $request, array $headers) {
+                    return response()->json([
+                        'message' => 'Too many attempts to create transactions. Please try again later.',
+                        'retry_after' => $headers['Retry-After'],
+                    ], 429, $headers);
+                });
+        });
+
+        RateLimiter::for('create-payment-link', function (Request $request) {
+            return Limit::perMinute(5)
+                ->by($request->user()?->id ?: $request->ip())
+                ->response(function (Request $request, array $headers) {
+                    return response()->json([
+                        'message' => 'Too many attempts to create payment link. Please try again later.',
+                        'retry_after' => $headers['Retry-After'],
+                    ], 429, $headers);
+                });
+        });
+    }
+
 }

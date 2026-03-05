@@ -3,7 +3,7 @@
 
 ## 📝 Overview
 
-Payments Gate is a robust and secure payment gateway solution designed to facilitate seamless online transactions. It provides APIs  for integrating payment processing into your applications or websites.
+Payments Gate is a robust and secure payment gateway solution designed to facilitate seamless online transactions. It provides APIs for integrating payment processing into your applications or websites.
 
 
 ## 📑 Table of Contents
@@ -35,6 +35,10 @@ Payments Gate is a robust and secure payment gateway solution designed to facili
   - [🔧 Getting Your Keys](#-getting-your-keys)
   - [📡 Making Authenticated Requests](#-making-authenticated-requests)
   - [🔁 Retry Policy](#-retry-policy)
+- [⚡ Rate Limiting](#-rate-limiting)
+  - [🚦 Rate Limit Tiers](#-rate-limit-tiers)
+  - [📊 Limit Configuration](#-limit-configuration)
+  - [🔄 Retry-After Header](#-retry-after-header)
 - [🔔 Webhook Mechanism](#-webhook-mechanism)
   - [📌 When are webhooks triggered?](#-when-are-webhooks-triggered)
   - [🧾 Webhook Payload](#-webhook-payload)
@@ -42,6 +46,8 @@ Payments Gate is a robust and secure payment gateway solution designed to facili
 - [🔐 Webhook Signature Verification](#-webhook-signature-verification)
   - [✅ How the Signature Is Generated](#-how-the-signature-is-generated)
 - [🏁 Getting Started](#-getting-started)
+- [🐳 Docker](#-docker)
+- [🧪 Testing](#-testing)
 
 
 ## ✨ Features
@@ -58,11 +64,12 @@ Payments Gate is a robust and secure payment gateway solution designed to facili
 
 - **Language:** PHP 8.2
 - **Framework:** Laravel 12
-- **Authentication:** Laravel Breeze
+- **Authentication:** Laravel Breeze + API Key Authentication
 - **Authorization:** Laravel Permission
-- **Admin and User Panel:** Filament
+- **Admin Panel:** Filament (API-only dashboard)
 - **Database:** PostgreSQL / MySQL
-- **API:** RESTful, JSON-based
+- **Cache:** Redis
+- **API:** RESTful, JSON-based with Rate Limiting
 
 
 ## 📚 API Documentation
@@ -166,10 +173,10 @@ The **Payment Links** feature allows merchants to generate secure, one-time URLs
 ### ⚙️ How It Works
 
 1. The merchant creates a payment link via the API or through the admin panel.
-2. A unique, signed URL is generated for example:
-   https://payments-gate.onrender.com/payment/123e4567-e89b-12d3-a456-426614174000
-4. The customer opens the link and completes payment using one of the integrated providers (**TPay**, **Paynow**, or **Noda**).
-5. Once the payment is completed, the system updates the transaction status and sends a webhook notification to the merchant’s application.
+2. A unique, signed URL is generated, for example:
+   `https://payments-gate.onrender.com/payment/123e4567-e89b-12d3-a456-426614174000`
+3. The customer opens the link and completes payment using one of the integrated providers (**TPay**, **Paynow**, or **Noda**).
+4. Once the payment is completed, the system updates the transaction status and sends a webhook notification to the merchant’s application.
 
 ### 🧱 API Endpoints
 
@@ -200,13 +207,13 @@ Content-Type: application/json
 
 ```json
 {
-    "paymentLink": "https://payments-gate.onrender.com/payments/123e4567-e89b-12d3-a456-426614174000",
+    "paymentLink": "https://payments-gate.onrender.com/payment/123e4567-e89b-12d3-a456-426614174000",
 }
 ```
 
 ### 🔒 Security Notes
 
-- Each payment link is  tied to the merchant’s **API Key**.
+- Each payment link is tied to the merchant’s **API Key**.
 - Protection against making multiple payments from one link.
 - Links automatically **expire** after a configurable time window.  
 - **Expired** links reject all payment attempts.
@@ -291,6 +298,72 @@ Content-Type: application/json
 If a webhook fails to deliver (i.e., the HTTP response code is not `200`), the system will retry sending it **every 1 minute**, for up to **10 attempts**.
 
 After **10 unsuccessful attempts**, the webhook will **no longer be retried**.
+
+## ⚡ Rate Limiting
+
+Payments Gate implements comprehensive rate limiting to prevent abuse, ensure fair usage, and maintain system stability. Each endpoint has specific request limits that apply per user ID or IP address.
+
+### 🚦 Rate Limit Tiers
+
+| Endpoint | Limit | Window | Identifier |
+|----------|-------|--------|------------|
+| **Register** | 5 | Per Minute | IP Address |
+| **Login** | 10 | Per Minute | IP Address |
+| **Forgot Password** | 5 | Per Minute | IP Address |
+| **Reset Password** | 5 | Per Minute | IP Address |
+| **Create Transaction** | 5 | Per Minute | User ID or IP |
+| **Create Payment Link** | 5 | Per Minute | User ID or IP |
+| **Refund Payment** | 10 | Per Minute | User ID or IP |
+| **General API** | 120 | Per Minute | User ID, API Key, or IP |
+
+### 📊 Limit Configuration
+
+Rate limits are enforced in two ways:
+
+1. **Inline Middleware** - Auth endpoints use inline rate limit definitions:
+   ```php
+   Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:5,1');
+   Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
+   Route::post('/forgot-password', [AuthController::class, 'sendResetLink'])->middleware('throttle:5,1');
+   Route::post('/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:5,1');
+   ```
+
+2. **Custom Rate Limiter Configuration** - API endpoints use named limiters:
+   ```php
+   // Create Transaction - 5 requests per minute
+   RateLimiter::for('create-transaction', function (Request $request) {
+       return Limit::perMinute(5)
+           ->by($request->user()?->id ?: $request->ip());
+   });
+
+   // Refund Payment - 10 requests per minute
+   RateLimiter::for('refund', function (Request $request) {
+       return Limit::perMinute(10)
+           ->by($request->user()?->id ?: $request->ip());
+   });
+
+   // General API - 120 requests per minute
+   RateLimiter::for('api', function (Request $request) {
+       return Limit::perMinute(120)
+           ->by($request->user()?->id ?: $request->header('x-api-key') ?: $request->ip());
+   });
+   ```
+
+### 🔄 Retry-After Header
+
+When a rate limit is exceeded, the API responds with:
+
+- **HTTP Status:** `429 Too Many Requests`
+- **Response Body:**
+  ```json
+  {
+    "message": "Too many attempts. Please try again later.",
+    "retry_after": 60
+  }
+  ```
+- **Retry-After Header:** Included in response headers indicating seconds to wait before retrying
+
+> 💡 **Tip:** Implement exponential backoff in your client to gracefully handle rate limit responses.
 
 ## 🔔 Webhook Mechanism
 
@@ -377,3 +450,23 @@ $signature = hash_hmac('sha256', $transaction_uuid . $payment_method, $merchantS
   ```bash
   php artisan serve
   ```
+
+## 🐳 Docker
+
+You can run the application with Docker Compose (app, PostgreSQL, Redis):
+
+```bash
+docker compose up -d
+```
+
+The app will be available on port 80. Ensure `.env` is configured for the database and Redis connections used by the containers.
+
+## 🧪 Testing
+
+Run the test suite with PHPUnit:
+
+```bash
+php artisan test
+# or
+./vendor/bin/phpunit
+```

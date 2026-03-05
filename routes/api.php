@@ -13,12 +13,12 @@ Route::post('/confirm-transaction', [TransactionController::class, 'confirmTrans
 Route::get('/transaction/{uuid}/status', [TransactionController::class, 'getStatus']);
 Route::get('/payment/{payment_link_id}', [PaymentLinkController::class, 'paymentDetails']);
 
-Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login', [AuthController::class, 'login']);
-Route::post('/forgot-password', [AuthController::class, 'sendResetLink']);
-Route::post('/reset-password', [AuthController::class, 'resetPassword']);
+Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:5,1');
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
+Route::post('/forgot-password', [AuthController::class, 'sendResetLink'])->middleware('throttle:5,1');
+Route::post('/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:5,1');
 
-Route::middleware(['auth.or.apikey', 'token.expiration', 'merchant'])->group(function () {
+Route::middleware(['auth.or.apikey', 'token.expiration', 'merchant', 'throttle:api'])->group(function () {
 
     Route::get('/user', function (Request $request) {
         return $request->user();
@@ -33,7 +33,8 @@ Route::middleware(['auth.or.apikey', 'token.expiration', 'merchant'])->group(fun
         ->middleware('throttle:create-transaction');
     Route::post('/create-payment-link', [PaymentLinkController::class, 'createPaymentLink'])
         ->middleware('throttle:create-payment-link');
-    Route::post('/refund-payment', [TransactionController::class, 'refundPayment']);
+    Route::post('/refund-payment', [TransactionController::class, 'refundPayment'])
+        ->middleware('throttle:refund');
 
     Route::get('/transactions', [DashboardController::class, 'getMerchantTransactions']);
     Route::get('/transactions/recent', [DashboardController::class, 'getRecentTransaction']);

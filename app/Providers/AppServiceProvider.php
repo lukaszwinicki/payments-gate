@@ -107,6 +107,28 @@ class AppServiceProvider extends ServiceProvider
                     ], 429, $headers);
                 });
         });
+
+        RateLimiter::for('api', function (Request $request) {
+            return Limit::perMinute(120)
+                ->by($request->user()?->id ?: $request->header('x-api-key') ?: $request->ip())
+                ->response(function (Request $request, array $headers) {
+                    return response()->json([
+                        'message' => 'Too many requests. Please try again later.',
+                        'retry_after' => $headers['Retry-After'],
+                    ], 429, $headers);
+                });
+        });
+
+        RateLimiter::for('refund', function (Request $request) {
+            return Limit::perMinute(10)
+                ->by($request->user()?->id ?: $request->ip())
+                ->response(function (Request $request, array $headers) {
+                    return response()->json([
+                        'message' => 'Too many refund attempts. Please try again later.',
+                        'retry_after' => $headers['Retry-After'],
+                    ], 429, $headers);
+                });
+        });
     }
 
 }
